@@ -1,18 +1,56 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
-typedef struct Node {
-	char ch;
+typedef struct Node_struct {
+	unsigned char ch;
 	int freq;
 	int depth;
-	struct Node *left;
-	struct Node *right;
-	struct Node *parent;
-} CharNode;
+	struct Node_struct *left;
+	struct Node_struct *right;
+	struct Node_struct *parent;
+} Node;
 
-CharNode *create(char ch, int f);
-CharNode *heapPop(CharNode **heap, int *len);
-void heapPush(CharNode **heap, int *len, CharNode *add);
+typedef struct BitStream_struct {
+	FILE *file;
+	int offset;
+	char current;
+} BitStream;
+
+BitStream * bitStream(FILE *file) {
+	BitStream * stream;
+
+	stream = (BitStream *) malloc(sizeof(BitStream));
+	stream->file = file;
+	stream->offset = 0;
+	stream->current = 0;
+}
+
+void bitStream_flush(BitStream * stream) {
+	if (stream->offset) {
+		fwrite(&stream->current, sizeof(char), 1, stream->file);
+	}
+	stream->current = 0;
+	stream->offset = 0;
+}
+
+void bitStream_write(BitStream * stream, int bit) {
+	if (stream->offset >= 8) {
+		bitStream_flush(stream);
+	}
+	stream->current |= (bit & 0x1) << (stream->offset++);
+}
+
+void bitStream_multiWrite(BitStream *stream, char *data) {
+	unsigned int i;
+	for (i=0;data[i]>=0;++i) {
+		bitStream_write(stream, data[i]);
+	}
+}
+
+Node *create(char ch, int f);
+Node *heapPop(Node **heap, int *len);
+void heapPush(Node **heap, int *len, Node *add);
 
 int main(int argc, char** argv) {
 
@@ -26,12 +64,12 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
-	CharNode *heap[256];
+	Node *heap[256];
 	int heaplen = 0;
-	CharNode nodes[256];
+	Node nodes[256];
 
 	int i;
-	char cur;
+	unsigned char cur;
 	for (i=0;i<256;++i) {
 		nodes[i].ch = i;
 		nodes[i].freq = 0;
@@ -42,10 +80,11 @@ int main(int argc, char** argv) {
 	}
 
 	FILE* input = fopen(filename, "r");
+	setvbuf(input, NULL, _IOFBF, 0);
 	while (fread(&cur, 1, 1, input)) {
 		nodes[cur].freq++;
 	}
-	fclose(input);
+	rewind(input);
 
 	int validChars = 0;
 	for (i=0;i<256;++i) {
@@ -56,9 +95,9 @@ int main(int argc, char** argv) {
 	}
 
 	while (heaplen > 1) {
-		CharNode *j1 = heapPop(heap, &heaplen);
-		CharNode *j2 = heapPop(heap, &heaplen);
-		CharNode *joined = create(0, j1->freq + j2->freq);
+		Node *j1 = heapPop(heap, &heaplen);
+		Node *j2 = heapPop(heap, &heaplen);
+		Node *joined = create(0, j1->freq + j2->freq);
 		joined->left = j1;
 		joined->right = j2;
 		joined->parent = NULL;
@@ -68,8 +107,6 @@ int main(int argc, char** argv) {
 		heapPush(heap, &heaplen, joined);
 	}
 
-	input = fopen(filename, "r");
-
 	int bufsize = heap[0]->depth;
 	char *buffer = (char *) malloc(bufsize + 1);
 	buffer[bufsize] = 0;
@@ -77,43 +114,48 @@ int main(int argc, char** argv) {
 	char *encoded[256];
 	FILE *outputFile;
 	outputFile = fopen(output, "w");
-	fprintf(outputFile, "%d\n", validChars);
+	BitStream * outputStream;
+	outputStream = bitStream(outputFile);
+	setvbuf(outputFile, NULL, _IOFBF, 0);
+	fwrite(&validChars, sizeof(short), 1, outputFile);
 	for (i=0;i<256;++i) {
 		if (nodes[i].freq > 0) {
-			CharNode *node = &nodes[i];
+			Node *node = &nodes[i];
 			int len = bufsize;
 			while (node->parent) {
-				CharNode *parent = node->parent;
-				buffer[--len] = (parent->left == node ? '0' : '1');
+				Node *parent = node->parent;
+				buffer[--len] = (parent->left == node ? 0 : 1);
 				node = parent;
 			}
 			encoded[i] = (char *) malloc(bufsize - len + 1);
-			sprintf(encoded[i], "%s", buffer+len);
-			fprintf(outputFile, "%c%s\n", nodes[i].ch, encoded[i]);
+			encoded[i][bufsize-len+1] = -1;
+			memcpy(encoded[i], buffer+len, bufsize-len);
+			bitStream_flush(outputStream);
+			fwrite(&i, sizeof(char), 1, outputFile);
+			bitStream_multiWrite(outputStream, encoded[i]);
 		} else {
 			encoded[i] = NULL;
 		}
 	}
 
 	while (fread(&cur, 1, 1, input)) {
-		fprintf(outputFile, "%s", encoded[cur]);
+		bitStream_multiWrite(outputStream, encoded[cur]);
 	}
-	fprintf(outputFile, "\n");
+	bitStream_flush(outputStream);
 	fclose(outputFile);
-
 	fclose(input);
 
 	return 0;
 }
 
 // zero indexed heap
-void heapPush(CharNode **heap, int *len, CharNode *added) {
+void heapPush(Node **heap, int *len, Node *added) {
 	int ind = (*len)++;
 	heap[ind] = added;
 	while (ind > 0) {
 		int parent = (ind-1) / 2;
 		if (heap[parent]->freq > heap[ind]->freq) {
-			CharNode *tmp = heap[parent];
+			Node *tmp = heap[parent];
 			heap[parent] = heap[ind];
 			heap[ind] = tmp;
 			ind = parent;
@@ -124,8 +166,8 @@ void heapPush(CharNode **heap, int *len, CharNode *added) {
 }
 
 // zero indexed heap
-CharNode *heapPop(CharNode **heap, int *len) {
-	CharNode *popped = heap[0];
+Node *heapPop(Node **heap, int *len) {
+	Node *popped = heap[0];
 	heap[0] = heap[--(*len)];
 	int ind = 0;
 	while (1) {
@@ -138,7 +180,7 @@ CharNode *heapPop(CharNode **heap, int *len) {
 		}
 		if (next == ind) break;
 
-		CharNode *tmp = heap[next];
+		Node *tmp = heap[next];
 		heap[next] = heap[ind];
 		heap[ind] = tmp;
 		ind = next;
@@ -146,11 +188,15 @@ CharNode *heapPop(CharNode **heap, int *len) {
 	return popped;
 }
 
-CharNode *create(char ch, int f) {
-	CharNode *node = (CharNode*)malloc(sizeof(CharNode));
+Node *create(char ch, int f) {
+	Node *node = (Node*)malloc(sizeof(Node));
 
 	node->ch = ch;
 	node->freq = f;
+	node->left = NULL;
+	node->right = NULL;
+	node->parent = NULL;
+	node->depth = 1;
 
 	return node;
 }
