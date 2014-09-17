@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <stdlib.h>
 
 typedef struct struct_Node {
 	char c;
@@ -14,13 +15,39 @@ typedef struct struct_BitStream {
 	int index;
 } BitStream;
 
+void bitStream_reset(BitStream *stream) {
+	stream->index = -1;
+}
+
+BitStream * bitStream_init(FILE *file) {
+	BitStream *stream;
+	stream = (BitStream *) malloc(sizeof(BitStream));
+	stream->file = file;
+	bitStream_reset(stream);
+
+	return stream;
+}
+
+int bitStream_read(BitStream *stream) {
+	if (0 < stream->index || stream->index >= 8) {
+		stream->index = 0;
+		if (!fread(&stream->value, 1, 1, stream->file)) {
+			return -1;
+		}
+	}
+	return (stream->value >> stream->index) & 1;
+}
+
+
 void readLetter(BitStream * stream, Node * root) {
+	Node *cur;
+	Node *next;
 	char ch;
 	unsigned short bitSize;
 	unsigned short curBit;
 
-	fread(&ch, sizeof(char), 1, file);
-	fread(&bitSize, sizeof(short), 1, file);
+	fread(&ch, sizeof(char), 1, stream->file);
+	fread(&bitSize, sizeof(short), 1, stream->file);
 	bitStream_reset(stream);
 	cur = root;
 	for (curBit=0;curBit<bitSize;++curBit) {
@@ -51,34 +78,11 @@ Node * readTree(FILE* file) {
 	root->left = NULL;
 	root->right = NULL;
 	fread(&numChars, sizeof(short), 1, file);
-	BitStream * stream = bitStream(file);
+	BitStream * stream = bitStream_init(file);
 	for (curChar=0; curChar < numChars; curChar++) {
 		readLetter(stream, root);
 	}
 	return root;
-}
-
-BitStream *bitStream(FILE *file) {
-	BitStream *stream;
-	stream = (BitStream *) malloc(sizeof(BitStream));
-	stream->file = file;
-	bitStream_reset(stream);
-
-	return stream;
-}
-
-void bitStream_reset(BitStream *stream) {
-	stream->index = -1;
-}
-
-int bitStream_read(BitStream *stream) {
-	if (0 < stream->index || stream->index >= 8) {
-		stream->index = 0;
-		if (!fread(&stream->value, 1, 1, stream->file)) {
-			return -1;
-		}
-	}
-	return (stream->value >> stream->index) & 1
 }
 
 int main(int argc, char **argv) {
@@ -101,10 +105,13 @@ int main(int argc, char **argv) {
 
 	int bit;
 
+	long counts[256];
 	int decbits = 0;
 	int letters = 0;
 	int huffbits = 0;
 	double theobits = 0;
+
+	int i;
 
 	fin = fopen(argv[1], "r");
 	setvbuf(fin, NULL, _IOFBF, 0);
@@ -114,13 +121,14 @@ int main(int argc, char **argv) {
 	setvbuf(fin, NULL, _IOFBF, 0);
 
 	fread(&bits, sizeof(long long), 1, fin);
-	BitStream * bits = bitStream(fin);
+	BitStream * stream;
+	stream = bitStream_init(fin);
 
 	tree = root;
 	for (curbit=0;curbit<bits;++curbit) {
 		huffbits++;
 		
-		bit = bitStream_read(bits);
+		bit = bitStream_read(stream);
 		if (bit < 0) return 1;
 		tree = bit ? tree->left : tree->right;
 		if (tree->c) {
