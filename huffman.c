@@ -129,7 +129,7 @@ int main(int argc, char** argv) {
 			}
 			count = bufsize-len;
 			encoded[i] = (char *) malloc(count + 1);
-			encoded[i][count + 1] = -1;
+			encoded[i][count] = -1;
 			memcpy(encoded[i], buffer+len, count);
 
 			bitStream_flush(outputStream);
