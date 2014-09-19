@@ -29,13 +29,14 @@ BitStream * bitStream_init(FILE *file) {
 }
 
 int bitStream_read(BitStream *stream) {
-	if (0 < stream->index || stream->index >= 8) {
+	if (stream->index < 0 || stream->index >= 8) {
 		stream->index = 0;
 		if (!fread(&stream->value, 1, 1, stream->file)) {
 			return -1;
 		}
 	}
-	return (stream->value >> stream->index) & 1;
+	stream->index++;
+	return (stream->value >> (stream->index-1)) & 1;
 }
 
 
@@ -47,7 +48,7 @@ void readLetter(BitStream * stream, Node * root) {
 	unsigned short curBit;
 
 	fread(&ch, sizeof(char), 1, stream->file);
-	fread(&bitSize, sizeof(short), 1, stream->file);
+	fread(&bitSize, sizeof(unsigned short), 1, stream->file);
 	bitStream_reset(stream);
 	cur = root;
 	for (curBit=0;curBit<bitSize;++curBit) {
@@ -70,14 +71,14 @@ void readLetter(BitStream * stream, Node * root) {
 }
 
 Node * readTree(FILE* file) {
-	unsigned short numChars;
+	unsigned char numChars;
 	unsigned short curChar;
 	Node * root, *cur, *next;
 	root = (Node *) malloc(sizeof(Node));
 	root->c = 0;
 	root->left = NULL;
 	root->right = NULL;
-	fread(&numChars, sizeof(short), 1, file);
+	fread(&numChars, sizeof(unsigned char), 1, file);
 	BitStream * stream = bitStream_init(file);
 	for (curChar=0; curChar < numChars; curChar++) {
 		readLetter(stream, root);
@@ -100,12 +101,13 @@ int main(int argc, char **argv) {
 	FILE *fout;
 	Node *tree;
 	Node *root;
-	unsigned long long bits;
+	long long bits;
 	unsigned long long curbit;
 
 	int bit;
 
 	long counts[256];
+	memset(counts, 0, sizeof(counts));
 	int decbits = 0;
 	int letters = 0;
 	int huffbits = 0;
