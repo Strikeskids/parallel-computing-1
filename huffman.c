@@ -28,7 +28,7 @@ BitStream * bitStream(FILE *file) {
 
 void bitStream_flush(BitStream * stream) {
 	if (stream->offset) {
-		fwrite(&stream->current, sizeof(char), 1, stream->file);
+		fwrite(&stream->current, sizeof(unsigned char), 1, stream->file);
 	}
 	stream->current = 0;
 	stream->offset = 0;
@@ -41,11 +41,12 @@ void bitStream_write(BitStream * stream, int bit) {
 	stream->current |= (bit & 0x1) << (stream->offset++);
 }
 
-void bitStream_multiWrite(BitStream *stream, char *data) {
+unsigned int bitStream_multiWrite(BitStream *stream, char *data) {
 	unsigned int i;
 	for (i=0;data[i]>=0;++i) {
 		bitStream_write(stream, data[i]);
 	}
+	return i;
 }
 
 Node *create(char ch, int f);
@@ -86,7 +87,7 @@ int main(int argc, char** argv) {
 	}
 	rewind(input);
 
-	int validChars = 0;
+	unsigned char validChars = 0;
 	for (i=0;i<256;++i) {
 		if (nodes[i].freq > 0) {
 			heapPush(heap, &heaplen, &(nodes[i]));
@@ -112,37 +113,49 @@ int main(int argc, char** argv) {
 	buffer[bufsize] = 0;
 
 	char *encoded[256];
-	FILE *outputFile;
-	outputFile = fopen(output, "w");
 	BitStream * outputStream;
-	outputStream = bitStream(outputFile);
-	setvbuf(outputFile, NULL, _IOFBF, 0);
-	fwrite(&validChars, sizeof(short), 1, outputFile);
+	outputStream = bitStream(fopen(output, "w"));
+	setvbuf(outputStream->file, NULL, _IOFBF, 0);
+	fwrite(&validChars, sizeof(unsigned char), 1, outputStream->file);
 	for (i=0;i<256;++i) {
 		if (nodes[i].freq > 0) {
 			Node *node = &nodes[i];
 			int len = bufsize;
+			unsigned short count;
 			while (node->parent) {
 				Node *parent = node->parent;
 				buffer[--len] = (parent->left == node ? 0 : 1);
 				node = parent;
 			}
-			encoded[i] = (char *) malloc(bufsize - len + 1);
-			encoded[i][bufsize-len+1] = -1;
-			memcpy(encoded[i], buffer+len, bufsize-len);
+			count = bufsize-len;
+			encoded[i] = (char *) malloc(count + 1);
+			encoded[i][count + 1] = -1;
+			memcpy(encoded[i], buffer+len, count);
+
 			bitStream_flush(outputStream);
-			fwrite(&i, sizeof(char), 1, outputFile);
+			fwrite(&nodes[i].ch, sizeof(char), 1, outputStream->file);
+			fwrite(&count, sizeof(unsigned short), 1, outputStream->file);
 			bitStream_multiWrite(outputStream, encoded[i]);
+
 		} else {
 			encoded[i] = NULL;
 		}
 	}
 
-	while (fread(&cur, 1, 1, input)) {
-		bitStream_multiWrite(outputStream, encoded[cur]);
-	}
 	bitStream_flush(outputStream);
-	fclose(outputFile);
+	long long totalBits = 0;
+	long bitSizeLoc = ftell(outputStream->file);
+	fwrite(&totalBits, sizeof(long long), 1, outputStream->file);
+
+	while (fread(&cur, 1, 1, input)) {
+		totalBits += bitStream_multiWrite(outputStream, encoded[cur]);
+	}
+
+	bitStream_flush(outputStream);
+	fseek(outputStream->file, bitSizeLoc, SEEK_SET);
+	fwrite(&totalBits, sizeof(long long), 1, outputStream->file);
+
+	fclose(outputStream->file);
 	fclose(input);
 
 	return 0;
