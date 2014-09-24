@@ -121,7 +121,7 @@ int main(int argc, char** argv) {
 		if (nodes[i].freq > 0) {
 			Node *node = &nodes[i];
 			int len = bufsize;
-			unsigned short count;
+			unsigned char count;
 			while (node->parent) {
 				Node *parent = node->parent;
 				buffer[--len] = (parent->left == node ? 0 : 1);
@@ -134,7 +134,7 @@ int main(int argc, char** argv) {
 
 			bitStream_flush(outputStream);
 			fwrite(&nodes[i].ch, sizeof(char), 1, outputStream->file);
-			fwrite(&count, sizeof(unsigned short), 1, outputStream->file);
+			fwrite(&count, sizeof(unsigned char), 1, outputStream->file);
 			bitStream_multiWrite(outputStream, encoded[i]);
 
 		} else {

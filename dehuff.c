@@ -44,11 +44,11 @@ void readLetter(BitStream * stream, Node * root) {
 	Node *cur;
 	Node *next;
 	char ch;
-	unsigned short bitSize;
-	unsigned short curBit;
+	unsigned char bitSize;
+	unsigned char curBit;
 
 	fread(&ch, sizeof(char), 1, stream->file);
-	fread(&bitSize, sizeof(unsigned short), 1, stream->file);
+	fread(&bitSize, sizeof(unsigned char), 1, stream->file);
 	bitStream_reset(stream);
 	cur = root;
 	for (curBit=0;curBit<bitSize;++curBit) {
