@@ -23,6 +23,8 @@ void swap(void **a, void **b) {
 }
 
 void printTrees(char *trees, long width, long height) {
+	sleep(1);
+	printf("\x1B[1;1H");
 
 	long total = width * height;
 	long i;
@@ -30,8 +32,6 @@ void printTrees(char *trees, long width, long height) {
 		printf("%c", trees[i]);
 		if (++i % width == 0) printf("\n");
 	}
-
-	printf("\n");
 }
 
 Queue *queue_init(long length) {
@@ -104,6 +104,7 @@ int main(int argc, char ** argv) {
 	current = queue_init(forestHeight);
 	next = queue_init(forestHeight);
 	
+	printf("\x1B[2J");
 	printTrees(trees, forestWidth, forestHeight);
 
 	for (i=0;i<forestHeight;++i) {
