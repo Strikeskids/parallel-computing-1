@@ -61,7 +61,7 @@ void queue_extend(Queue *q, long newLength) {
 }
 
 void queue_push(Queue *q, long item) {
-	if (q->end < q->start && (q->end + 1) % q->length >= q->start) {
+	if ((q->end + 1) % q->length == q->start) {
 		queue_extend(q, q->length * 2);
 	}
 	q->items[q->end++] = item;
@@ -80,6 +80,7 @@ long queue_clear(Queue *q) {
 }
 
 void generateForest(char *trees, long width, long height, float probability) {
+	long i, len;
 	float randPoint = probability + RAND_MAX * probability;
 	
 	memset(trees, EMPTY, width * height);
@@ -92,8 +93,9 @@ void generateForest(char *trees, long width, long height, float probability) {
 }
 
 long fireForest(char *trees, long width, long height) {
+	long i;
 
-	long count = 1;
+	long count = 0;
 
 	Queue *current, *next;
 	current = queue_init(height);
@@ -120,7 +122,7 @@ long fireForest(char *trees, long width, long height) {
 			trees[index] = EMPTY;
 			for (dx=minx;dx<=maxx;++dx) {
 				for (dy=miny;dy<=maxy;++dy) {
-					if (dx & dy && !(dx | dy)) {
+					if (dx && !dy || !dx && dy) {
 						long adj = index + dx + dy * width;
 						if (trees[adj] == TREE) {
 							trees[adj] = FIRE;
@@ -142,20 +144,34 @@ long fireForest(char *trees, long width, long height) {
 
 int main(int argc, char ** argv) {
 	float probability;
-	probability = 0.7;
+
+	long forestWidth, forestHeight;
+	long trials, trial;
+
+	if (argc < 4) {
+		fprintf(stderr, "forestfire width height trials\n");
+		return 1;
+	}
+
+	sscanf(argv[1], "%ld", &forestWidth);
+	sscanf(argv[2], "%ld", &forestHeight);
+	sscanf(argv[3], "%ld", &trials);
 
 	char *trees;
-
-	long i, len;
-
-
-
 	trees = (char *) malloc(forestWidth * forestHeight * sizeof(char));
 
-	generateForest(trees, forestWidth, forestHeight, probability);
-	fireForest(trees, forestWidth, forestHeight);
+	for (probability=0;probability<1;probability += 0.01) {
+		float time = 0;
+		for (trial=0;trial<trials;++trial) {
+			generateForest(trees, forestWidth, forestHeight, probability);
+			time += fireForest(trees, forestWidth, forestHeight) * 1.0 / forestWidth;
+		}
+		time /= trials;
+		printf("%f %f\n", probability, time);
+	}
 
 	free(trees);
+	return 0;
 }
 
 
