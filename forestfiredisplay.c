@@ -64,7 +64,7 @@ void queue_extend(Queue *q, long newLength) {
 }
 
 void queue_push(Queue *q, long item) {
-	if (q->end < q->start && (q->end + 1) % q->length >= q->start) {
+	if ((q->end + 1)%q->length == q->start) {
 		queue_extend(q, q->length * 2);
 	}
 	q->items[q->end++] = item;
@@ -84,7 +84,7 @@ long queue_clear(Queue *q) {
 
 int main(int argc, char ** argv) {
 	float probability, randPoint;
-	probability = 0.7;
+	probability = 1;
 	randPoint = probability + RAND_MAX * probability;
 
 	char *trees;
@@ -130,10 +130,12 @@ int main(int argc, char ** argv) {
 			trees[index] = EMPTY;
 			for (dx=minx;dx<=maxx;++dx) {
 				for (dy=miny;dy<=maxy;++dy) {
-					long adj = index + dx + dy * forestWidth;
-					if (trees[adj] == TREE) {
-						trees[adj] = FIRE;
-						queue_push(next, adj);
+					if (dx && !dy || dy && !dx) {
+						long adj = index + dx + dy * forestWidth;
+						if (trees[adj] == TREE) {
+							trees[adj] = FIRE;
+							queue_push(next, adj);
+						}
 					}
 				}
 			}
