@@ -13,9 +13,6 @@ typedef struct {
 	long length;
 } Queue;
 
-const int forestWidth = 30;
-const int forestHeight = 30;
-
 void swap(void **a, void **b) {
 	void *tmp = *a;
 	*a = *b;
@@ -82,65 +79,83 @@ long queue_clear(Queue *q) {
 	q->end = 0;
 }
 
-int main(int argc, char ** argv) {
-	float probability, randPoint;
-	probability = 0.7;
-	randPoint = probability + RAND_MAX * probability;
+void generateForest(char *trees, long width, long height, float probability) {
+	float randPoint = probability + RAND_MAX * probability;
+	
+	memset(trees, EMPTY, width * height);
 
-	char *trees;
-
-	long i, len;
-
-	trees = (char *) malloc(forestWidth * forestHeight * sizeof(char));
-	memset(trees, EMPTY, forestWidth * forestHeight);
-
-	for (i=0,len=forestWidth*forestHeight;i<len;++i) {
+	for (i=0,len=width*height;i<len;++i) {
 		if (rand() < randPoint) {
 			trees[i] = TREE;
 		}
 	}
+}
+
+long fireForest(char *trees, long width, long height) {
+
+	long count = 1;
 
 	Queue *current, *next;
-	current = queue_init(forestHeight);
-	next = queue_init(forestHeight);
-	
-	printf("\x1B[2J");
-	printTrees(trees, forestWidth, forestHeight);
+	current = queue_init(height);
+	next = queue_init(height);
 
-	for (i=0;i<forestHeight;++i) {
-		if (trees[i*forestWidth] == TREE) {
-			trees[i*forestWidth] = FIRE;
-			queue_push(current, i*forestWidth);
+	for (i=0;i<height;++i) {
+		if (trees[i*width] == TREE) {
+			trees[i*width] = FIRE;
+			queue_push(current, i*width);
 		}
 	}
-
-	printTrees(trees, forestWidth, forestHeight);
 
 	while (queue_length(current)) {
 		queue_clear(next);
 		while (queue_length(current)) {
 			long index = queue_pop(current);
 			long dx, dy, minx, miny, maxx, maxy, x, y;
-			y = index / forestWidth;
-			x = index % forestWidth;
+			y = index / width;
+			x = index % width;
 			minx = x > 0 ? -1 : 0;
 			miny = y > 0 ? -1 : 0;
-			maxx = x < forestWidth -1 ? 1 : 0;
-			maxy = y < forestHeight -1 ? 1 : 0;
+			maxx = x < width -1 ? 1 : 0;
+			maxy = y < height -1 ? 1 : 0;
 			trees[index] = EMPTY;
 			for (dx=minx;dx<=maxx;++dx) {
 				for (dy=miny;dy<=maxy;++dy) {
-					long adj = index + dx + dy * forestWidth;
-					if (trees[adj] == TREE) {
-						trees[adj] = FIRE;
-						queue_push(next, adj);
+					if (dx & dy && !(dx | dy)) {
+						long adj = index + dx + dy * width;
+						if (trees[adj] == TREE) {
+							trees[adj] = FIRE;
+							queue_push(next, adj);
+						}
 					}
 				}
 			}
 		}
-		printTrees(trees, forestWidth, forestHeight);
 		swap((void **)&current, (void **)&next);
+		count++;
 	}
+
+	free(current);
+	free(next);
+
+	return count;
+}
+
+int main(int argc, char ** argv) {
+	float probability;
+	probability = 0.7;
+
+	char *trees;
+
+	long i, len;
+
+
+
+	trees = (char *) malloc(forestWidth * forestHeight * sizeof(char));
+
+	generateForest(trees, forestWidth, forestHeight, probability);
+	fireForest(trees, forestWidth, forestHeight);
+
+	free(trees);
 }
 
 
