@@ -25,7 +25,11 @@ void printTrees(char *trees, long width, long height) {
 
 	long total = width * height;
 	long i;
-	for (i=0;i<total;) {
+	for (i=0;i<toar *trees;
+	18     trees = (char *) malloc(forestWidth * forestHeight * sizeof(char));
+	17 
+	16     for (level=0;level<=levels;++level) {
+	al;) {
 		printf("%c", trees[i]);
 		if (++i % width == 0) printf("\n");
 	}
@@ -77,6 +81,10 @@ long queue_pop(Queue *q) {
 long queue_clear(Queue *q) {
 	q->start = 0;
 	q->end = 0;
+}
+
+void queue_get(Queue *q, long n) {
+	return q->items[(q->start + n) % q->length];
 }
 
 void generateForest(char *trees, long width, long height, float probability) {
