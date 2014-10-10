@@ -33,7 +33,7 @@ void printTrees(char *trees, long width, long height) {
 
 Queue *queue_init(long length) {
 	Queue *q = (Queue *) malloc(sizeof(Queue));
-	q->length = length;
+	q->length = length+1;
 	q->items = (long *) malloc(sizeof(long) * q->length);
 	q->start = 0;
 	q->end = 0;
@@ -62,7 +62,7 @@ void queue_extend(Queue *q, long newLength) {
 
 void queue_push(Queue *q, long item) {
 	if ((q->end + 1) % q->length == q->start) {
-		queue_extend(q, q->length * 2);
+		queue_extend(q, q->length * 2 - 1);
 	}
 	q->items[q->end++] = item;
 	q->end %= q->length;
@@ -92,14 +92,12 @@ void generateForest(char *trees, long width, long height, float probability) {
 	}
 }
 
-long fireForest(char *trees, long width, long height) {
+long fireForest(Queue *current, Queue *next, char *trees, long width, long height) {
 	long i;
 
 	long count = 0;
 
-	Queue *current, *next;
-	current = queue_init(height);
-	next = queue_init(height);
+	queue_clear(current);
 
 	for (i=0;i<height;++i) {
 		if (trees[i*width] == TREE) {
@@ -136,38 +134,64 @@ long fireForest(char *trees, long width, long height) {
 		count++;
 	}
 
-	free(current);
-	free(next);
-
 	return count;
 }
 
-int main(int argc, char ** argv) {
-	float probability;
+long fireForest_noQueue(char *trees, long width, long height) {
+	Queue *current, *next;
+	current = queue_init(height);
+	next = queue_init(height);
+	long count = fireForest(current, next, trees, width, height);
+	free(current);
+	free(next);
+	return count;
+}
 
+
+int main(int argc, char ** argv) {
 	long forestWidth, forestHeight;
 	long trials, trial;
 
-	if (argc < 4) {
-		fprintf(stderr, "forestfire width height trials\n");
+	float start, end, probability;
+	long levels, level;
+
+	if (argc < 7) {
+		fprintf(stderr, "forestfire width height start end levels trials\n");
 		return 1;
 	}
 
 	sscanf(argv[1], "%ld", &forestWidth);
 	sscanf(argv[2], "%ld", &forestHeight);
-	sscanf(argv[3], "%ld", &trials);
+	sscanf(argv[3], "%f", &start);
+	sscanf(argv[4], "%f", &end);
+	sscanf(argv[5], "%ld", &levels);
+	sscanf(argv[6], "%ld", &trials);
+
+	char fname[300];
+
+	snprintf(fname, 300, "%ld.%ld.%.2f.%.2f.%ld.%ld.ffd", forestWidth, forestHeight, start, end, levels, trials);
+
+	printf("Filename %s\n", fname);
+
+	FILE *out = fopen(fname, "w");
 
 	char *trees;
 	trees = (char *) malloc(forestWidth * forestHeight * sizeof(char));
 
-	for (probability=0;probability<1;probability += 0.01) {
+	Queue *a, *b;
+	a = queue_init(forestHeight);
+	b = queue_init(forestHeight);
+
+	for (level=0;level<=levels;++level) {
+		probability = start+(end-start)/(levels)*level;
 		float time = 0;
 		for (trial=0;trial<trials;++trial) {
 			generateForest(trees, forestWidth, forestHeight, probability);
-			time += fireForest(trees, forestWidth, forestHeight) * 1.0 / forestWidth;
+			time += fireForest(a, b, trees, forestWidth, forestHeight) * 1.0 / forestWidth;
 		}
 		time /= trials;
 		printf("%f %f\n", probability, time);
+		fprintf(out, "%f %f\n", probability, time);
 	}
 
 	free(trees);
