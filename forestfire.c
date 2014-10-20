@@ -88,15 +88,26 @@ void queue_get(Queue *q, long n) {
 }
 
 void generateForest(char *trees, long width, long height, float probability) {
-	long i, len;
-	float randPoint = probability + RAND_MAX * probability;
+	long i;
+	long length = width*height;
+	long chosenCount = (long)(probability*length);
+	float randPoint;
+
+	long *chosen = malloc(sizeof(long) * chosenCount);
+	for (i=0;i<chosenCount;++i) {
+		chosen[i] = i;
+	}
+
+	for (i=chosenCount;i<length;++i) {
+		if (rand() > 1.0 * chosenCount * RAND_MAX / (i+1)) {
+			chosen[rand() % chosenCount] = i;
+		}
+	}
 	
 	memset(trees, EMPTY, width * height);
 
-	for (i=0,len=width*height;i<len;++i) {
-		if (rand() < randPoint) {
-			trees[i] = TREE;
-		}
+	for (i=0;i<chosenCount;++i) {
+		trees[chosen[i]] = TREE;
 	}
 }
 
