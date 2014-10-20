@@ -79,7 +79,7 @@ long queue_clear(Queue *q) {
 	q->end = 0;
 }
 
-void queue_get(Queue *q, long n) {
+long queue_get(Queue *q, long n) {
 	return q->items[(q->start + n) % q->length];
 }
 
