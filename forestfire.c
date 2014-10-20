@@ -25,11 +25,7 @@ void printTrees(char *trees, long width, long height) {
 
 	long total = width * height;
 	long i;
-	for (i=0;i<toar *trees;
-	18     trees = (char *) malloc(forestWidth * forestHeight * sizeof(char));
-	17 
-	16     for (level=0;level<=levels;++level) {
-	al;) {
+	for (i=0;i<total;) {
 		printf("%c", trees[i]);
 		if (++i % width == 0) printf("\n");
 	}
