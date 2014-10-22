@@ -90,7 +90,7 @@ void generateForest(char *trees, long width, long height, float probability) {
 	memset(trees, EMPTY, width * height);
 
 	if (chosenCount == 0) {
-		return trees;
+		return;
 	}
 
 	float randPoint;

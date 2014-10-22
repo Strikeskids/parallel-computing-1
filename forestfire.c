@@ -87,6 +87,11 @@ void generateForest(char *trees, long width, long height, float probability) {
 	long i;
 	long length = width*height;
 	long chosenCount = (long)(probability*length);
+
+	memset(trees, EMPTY, width * height);
+	if (chosenCount == 0) {
+		return;
+	}
 	float randPoint;
 
 	long *chosen = malloc(sizeof(long) * chosenCount);
@@ -100,7 +105,6 @@ void generateForest(char *trees, long width, long height, float probability) {
 		}
 	}
 	
-	memset(trees, EMPTY, width * height);
 
 	for (i=0;i<chosenCount;++i) {
 		trees[chosen[i]] = TREE;
