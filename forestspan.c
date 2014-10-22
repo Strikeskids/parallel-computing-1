@@ -111,6 +111,7 @@ void generateForest(char *trees, long width, long height, float probability) {
 	for (i=0;i<chosenCount;++i) {
 		trees[chosen[i]] = TREE;
 	}
+	free(chosen);
 }
 
 long spanForest(Queue *current, char *trees, long width, long height) {
