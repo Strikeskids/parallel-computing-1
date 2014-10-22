@@ -20,7 +20,6 @@ void swap(void **a, void **b) {
 }
 
 void printTrees(char *trees, long width, long height) {
-	sleep(1);
 	printf("\x1B[1;1H");
 
 	long total = width * height;
@@ -92,15 +91,16 @@ void generateForest(char *trees, long width, long height, float probability) {
 	if (chosenCount == 0) {
 		return;
 	}
-	float randPoint;
 
 	long *chosen = malloc(sizeof(long) * chosenCount);
 	for (i=0;i<chosenCount;++i) {
 		chosen[i] = i;
 	}
 
+	double randPoint = 1.0 * chosenCount * RAND_MAX;
 	for (i=chosenCount;i<length;++i) {
-		if (rand() > 1.0 * chosenCount * RAND_MAX / (i+1)) {
+		double curRand = randPoint / (i+1);
+		if (rand() < curRand) {
 			chosen[rand() % chosenCount] = i;
 		}
 	}
@@ -109,6 +109,8 @@ void generateForest(char *trees, long width, long height, float probability) {
 	for (i=0;i<chosenCount;++i) {
 		trees[chosen[i]] = TREE;
 	}
+
+	free(chosen);
 }
 
 long fireForest(Queue *current, Queue *next, char *trees, long width, long height) {
@@ -188,6 +190,7 @@ int main(int argc, char ** argv) {
 
 	char fname[300];
 
+	srand(time(NULL));
 	snprintf(fname, 300, "%ld.%ld.%.2f.%.2f.%ld.%ld.ffd", forestWidth, forestHeight, start, end, levels, trials);
 
 	printf("Filename %s\n", fname);

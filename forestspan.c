@@ -103,7 +103,7 @@ void generateForest(char *trees, long width, long height, float probability) {
 	double cbase = 1.0 * chosenCount * RAND_MAX;
 
 	for (i=chosenCount;i<length;++i) {
-		if (rand() > cbase / (i+1)) {
+		if (rand() < cbase / (i+1)) {
 			chosen[rand() % chosenCount] = i;
 		}
 	}
