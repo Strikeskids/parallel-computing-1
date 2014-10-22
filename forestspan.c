@@ -190,6 +190,7 @@ int main(int argc, char ** argv) {
 
 	char fname[300];
 
+	srand(time(NULL));
 	snprintf(fname, 300, "span.%ld.%ld.%.2f.%.2f.%ld.%ld.dat", forestWidth, forestHeight, start, end, levels, trials);
 
 	printf("Filename %s\n", fname);
