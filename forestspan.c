@@ -6,81 +6,9 @@
 #define TREE 'T'
 #define FIRE '*'
 
-typedef struct {
-	long *items;
-	long start;
-	long end;
-	long length;
-} Queue;
+#include "queue.h"
 
-void swap(void **a, void **b) {
-	void *tmp = *a;
-	*a = *b;
-	*b = tmp;
-}
-
-void printTrees(char *trees, long width, long height) {
-	printf("\x1B[1;1H");
-
-	long total = width * height;
-	long i;
-	for (i=0;i<total;) {
-		printf("%c", trees[i]);
-		if (++i % width == 0) printf("\n");
-	}
-}
-
-Queue *queue_init(long length) {
-	Queue *q = (Queue *) malloc(sizeof(Queue));
-	q->length = length+1;
-	q->items = (long *) malloc(sizeof(long) * q->length);
-	q->start = 0;
-	q->end = 0;
-}
-
-long queue_length(Queue *q) {
-	return q->start > q->end ? q->length - q->start + q->end : q->end - q->start;
-}
-
-void queue_extend(Queue *q, long newLength) {
-	if (newLength <= q->length) return;
-	q->items = (long *) realloc(q->items, newLength * sizeof(long));
-	if (q->start > q->end) {
-		if (q->end < newLength - q->length) {
-			memcpy(q->items + q->length, q->items, q->end);
-			q->end += q->length;
-		} else {
-			long numToMove = newLength - q->length;
-			memcpy(q->items + q->length, q->items, numToMove);
-			memmove(q->items, q->items + numToMove, q->end - numToMove);
-			q->end -= numToMove;
-		}
-	}
-	q->length = newLength;
-}
-
-void queue_push(Queue *q, long item) {
-	if ((q->end + 1) % q->length == q->start) {
-		queue_extend(q, q->length * 2 - 1);
-	}
-	q->items[q->end++] = item;
-	q->end %= q->length;
-}
-
-long queue_pop(Queue *q) {
-	long ans = q->items[q->start++];
-	q->start %= q->length;
-	return ans;
-}
-
-void queue_clear(Queue *q) {
-	q->start = 0;
-	q->end = 0;
-}
-
-long queue_get(Queue *q, long n) {
-	return q->items[(q->start + n) % q->length];
-}
+QUEUE_MAKE(long, Queue)
 
 void generateForest(char *trees, long width, long height, float probability) {
 	long i;
@@ -161,7 +89,7 @@ long spanForest(Queue *current, char *trees, long width, long height) {
 
 long spanForest_noQueue(char *trees, long width, long height) {
 	Queue *current;
-	current = queue_init(height);
+	current = queue_create(height);
 	long count = spanForest(current, trees, width, height);
 	free(current);
 	return count;
@@ -200,7 +128,7 @@ int main(int argc, char ** argv) {
 	trees = (char *) malloc(forestWidth * forestHeight * sizeof(char));
 
 	Queue *a;
-	a = queue_init(forestHeight);
+	a = queue_create(forestHeight);
 
 	for (level=0;level<=levels;++level) {
 		probability = start+(end-start)/(levels)*level;
