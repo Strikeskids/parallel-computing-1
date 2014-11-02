@@ -20,7 +20,6 @@ void swap(void **a, void **b) {
 }
 
 void printTrees(char *trees, long width, long height) {
-	sleep(1);
 	printf("\x1B[1;1H");
 
 	long total = width * height;
@@ -151,7 +150,7 @@ long spanForest(Queue *current, char *trees, long width, long height) {
 					}
 				}
 			}
-			if (sides & 0xf == 0xf) {
+			if ((sides & 0xf) == 0xf) {
 				return 1;
 			}
 		}
