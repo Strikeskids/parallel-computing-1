@@ -51,7 +51,7 @@ void generateForest(char *trees, long width, long height, float probability) {
 	free(chosen);
 }
 
-long spanForest(Queue *current, char *trees, long width, long height) {
+float spanForest(Queue *current, char *trees, long width, long height) {
 	long i;
 
 	long count = 0;
@@ -95,7 +95,7 @@ long spanForest(Queue *current, char *trees, long width, long height) {
 	return 0;
 }
 
-long fireForest(Queue *current, char *trees, long width, long height) {
+float fireForest(Queue *current, char *trees, long width, long height) {
 	long i;
 	long count = 0;
 
@@ -135,7 +135,28 @@ long fireForest(Queue *current, char *trees, long width, long height) {
 		count++;
 	}
 
-	return count;
+	return count * 1.0 / width;
+}
+
+void parse_args(int argc, char **argv, long *forestWidth, long *forestHeight, float *start, float *end, long *levels, long *trials) {
+	int argnum;
+	for (argnum=2;argnum<argc;++argnum) {
+		char *arg = argv[argnum];
+		switch (arg[0]) {
+			case 'd':
+				sscanf(arg+1, "%ldx%ld", forestWidth, forestHeight);
+				break;
+			case 'r':
+				sscanf(arg+1, "%f-%f", start, end);
+				break;
+			case 'l':
+				sscanf(arg+1, "%ld", levels);
+				break;
+			case 't':
+				sscanf(arg+1, "%ld", trials);
+				break;
+		}
+	}
 }
 
 int main(int argc, char ** argv) {
@@ -145,17 +166,17 @@ int main(int argc, char ** argv) {
 	float start, end, probability;
 	long levels, level;
 
-	if (argc < 7) {
-		fprintf(stderr, "forestfire width height start end levels trials\n");
+	if (argc < 3) {
+		fprintf(stderr, "forest (fire|span) [{tok}{value}]\n");
+		fprintf(stderr, "    tok   value\n");
+		fprintf(stderr, "    d     {width}x{height}\n");
+		fprintf(stderr, "    r     {start}-{end}\n");
+		fprintf(stderr, "    l     {levels}\n");
+		fprintf(stderr, "    t     {trials}\n");
 		return 1;
 	}
 
-	sscanf(argv[1], "%ld", &forestWidth);
-	sscanf(argv[2], "%ld", &forestHeight);
-	sscanf(argv[3], "%f", &start);
-	sscanf(argv[4], "%f", &end);
-	sscanf(argv[5], "%ld", &levels);
-	sscanf(argv[6], "%ld", &trials);
+	parse_args(argc, argv, &forestWidth, &forestHeight, &start, &end, &levels, &trials);
 
 	char fname[300];
 
@@ -177,7 +198,7 @@ int main(int argc, char ** argv) {
 		float time = 0;
 		for (trial=0;trial<trials;++trial) {
 			generateForest(trees, forestWidth, forestHeight, probability);
-			time += fireForest(q, trees, forestWidth, forestHeight) * 1.0 / forestWidth;
+			time += fireForest(q, trees, forestWidth, forestHeight);
 		}
 		time /= trials;
 		printf("%f %f\n", probability, time);
