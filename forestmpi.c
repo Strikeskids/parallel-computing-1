@@ -242,7 +242,6 @@ int manager(int argc, char ** argv) {
 			double prob = dprob * level + start;
 			work -= curwork;
 			levelWork -= curwork;
-			fprintf(stderr, "Sending %d %ld %g\n", worker, curwork, prob);
 			MPI_Send(&curwork, 1, MPI_LONG, worker, TAG_WORK, MPI_COMM_WORLD);
 			MPI_Send(&prob, 1, MPI_DOUBLE, worker, TAG_PROBABILITY, MPI_COMM_WORLD);
 			if (levelWork <= 0) {
@@ -338,7 +337,6 @@ void worker(int rank) {
 			generateForest(trees, dims[0], dims[1], probs[task]);
 			result += command(q, trees, dims[0], dims[1]);
 		}
-		fprintf(stdout, "Computing %ld %lg %lg\n", trials[task], probs[task], result);
 		MPI_Send(&probs[task], 1, MPI_DOUBLE, 0, TAG_PROBABILITY, MPI_COMM_WORLD);
 		MPI_Send(&result, 1, MPI_DOUBLE, 0, TAG_RESULT, MPI_COMM_WORLD);
 	}
