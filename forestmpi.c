@@ -20,7 +20,7 @@
 
 #define MAX_TASKS 50
 
-#define MAX(a,b) (a<b?b:a)
+#define MIN(a,b) (a>b?b:a)
 
 QUEUE_MAKE(long, Queue)
 
@@ -210,6 +210,7 @@ int manager(int argc, char ** argv) {
 	long levels;
 
 	parse_args(argc, argv, &forestWidth, &forestHeight, &start, &end, &levels, &trials);
+	levels++;
 
 	char fname[300];
 	snprintf(fname, 300, "%s.%ld.%ld.%.2lf.%.2lf.%ld.%ld.ffd", argv[1], forestWidth, forestHeight, start, end, levels, trials);
@@ -237,10 +238,11 @@ int manager(int argc, char ** argv) {
 		MPI_Send(&command, 1, MPI_CHAR, worker, TAG_WORK_TYPE, MPI_COMM_WORLD);
 		MPI_Send(&dims, 2, MPI_LONG, worker, TAG_DIMENSIONS, MPI_COMM_WORLD);
 		while (work > 0 && level < levels && curTasks < MAX_TASKS) {
-			curwork = MAX(work, levelWork);
+			curwork = MIN(work, levelWork);
 			double prob = dprob * level + start;
 			work -= curwork;
 			levelWork -= curwork;
+			fprintf(stderr, "Sending %d %ld %g\n", worker, curwork, prob);
 			MPI_Send(&curwork, 1, MPI_LONG, worker, TAG_WORK, MPI_COMM_WORLD);
 			MPI_Send(&prob, 1, MPI_DOUBLE, worker, TAG_PROBABILITY, MPI_COMM_WORLD);
 			if (levelWork <= 0) {
@@ -254,7 +256,7 @@ int manager(int argc, char ** argv) {
 		MPI_Send(&curwork, 1, MPI_LONG, worker, TAG_WORK, MPI_COMM_WORLD);
 	}
 
-	fprintf(stderr, "Total tasks sent: %ld", tasks);
+	fprintf(stderr, "Total tasks sent: %ld\n", tasks);
 
 	double *results;
 	results = malloc(sizeof(double) * levels);
@@ -269,24 +271,27 @@ int manager(int argc, char ** argv) {
 
 		level = (long)((prob-start)/dprob+0.5);
 		results[level] += result;
-		fprintf(stdout, "%d %g %g\n", status.MPI_SOURCE, prob, result);
+		fprintf(stderr, "Received %d %g %g\n", status.MPI_SOURCE, prob, result);
 	}
 
 	FILE *out = fopen(fname, "w");
 
 	for (level=0;level<levels;++level) {
-		fprintf(out, "%g %g", level*dprob+start, results[level]);
+		fprintf(out, "%g %g", level*dprob+start, results[level]/levels);
 	}
 
 	fclose(out);
 	free(results);
+
+	MPI_Finalize();
+	return 0;
 }
 
 void worker(int rank) {
 	double (*command)(Queue *, char *, long, long);
 
 	char commandNum;
-	double dims[2];
+	long dims[2];
 
 	int tasks=0;
 	double probs[MAX_TASKS];
@@ -328,11 +333,12 @@ void worker(int rank) {
 	int task;
 	long trial;
 	for (task=0;task<tasks;++task) {
-		double result;
+		double result = 0;
 		for (trial=0;trial<trials[task];++trial) {
 			generateForest(trees, dims[0], dims[1], probs[task]);
 			result += command(q, trees, dims[0], dims[1]);
 		}
+		fprintf(stdout, "Computing %ld %lg %lg\n", trials[task], probs[task], result);
 		MPI_Send(&probs[task], 1, MPI_DOUBLE, 0, TAG_PROBABILITY, MPI_COMM_WORLD);
 		MPI_Send(&result, 1, MPI_DOUBLE, 0, TAG_RESULT, MPI_COMM_WORLD);
 	}
@@ -350,6 +356,7 @@ int main(int argc, char ** argv) {
 		return manager(argc, argv);
 	} else {
 		worker(rank);
+		MPI_Finalize();
 		return 0;
 	}
 	
