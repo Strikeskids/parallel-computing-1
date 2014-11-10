@@ -29,21 +29,22 @@ unsigned long queue_length(QUEUE_NAME *q) {\
 	return q->start > q->end ? q->capacity - q->start + q->end : q->end - q->start;\
 }\
 \
-void queue_extend(QUEUE_NAME *q, long newLength) {\
+void queue_extend(QUEUE_NAME *q, unsigned long newLength) {\
 	if (newLength <= q->capacity) return;\
 	q->items = (QUEUE_TYPE *) realloc(q->items, newLength * sizeof(QUEUE_TYPE));\
 	if (q->start > q->end) {\
-		if (q->end < newLength - q->capacity) {\
-			memcpy(q->items + q->capacity, q->items, q->end);\
+		if (q->end <= newLength - q->capacity) {\
+			memcpy(q->items + q->capacity, q->items, q->end * sizeof(QUEUE_TYPE));\
 			q->end += q->capacity;\
 		} else {\
 			unsigned long numToMove = newLength - q->capacity;\
-			memcpy(q->items + q->capacity, q->items, numToMove);\
-			memmove(q->items, q->items + numToMove, q->end - numToMove);\
+			memcpy(q->items + q->capacity, q->items, numToMove * sizeof(QUEUE_TYPE));\
 			q->end -= numToMove;\
+			memmove(q->items, q->items + numToMove, q->end * sizeof(QUEUE_TYPE));\
 		}\
 	}\
 	q->capacity = newLength;\
+	q->end %= q->capacity;\
 }\
 \
 void queue_push(QUEUE_NAME *q, QUEUE_TYPE item) {\
