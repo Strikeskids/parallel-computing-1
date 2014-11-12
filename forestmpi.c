@@ -327,7 +327,7 @@ int manager(int argc, char ** argv) {
 	FILE *out = fopen(fname, "w");
 
 	for (level=0;level<levels;++level) {
-		fprintf(out, "%g %g", level*dprob+start, results[level]/levels);
+		fprintf(out, "%g %g\n", level*dprob+start, results[level]/levels);
 	}
 
 	fclose(out);
