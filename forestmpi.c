@@ -252,7 +252,8 @@ int manager(int argc, char ** argv) {
 	fprintf(stderr, "Total size (workers): %d %d\n", size, workers);
 	fprintf(stderr, "Total work (per worker): %ld (%ld)\n", totalWork, workPerWorker);
 
-	long maxWork = MIN(workPerWorker, 50000000 / forestWidth / forestHeight + 3);
+	long maxWork = MIN(workPerWorker, 100000000 / forestWidth / forestHeight + 3);
+	long totalJobs = totalWork / maxWork + 1, jobsReceived = 0;
 	long level = -1;
 	long levelWork = 0;
 	long taskCap = 0;
@@ -264,9 +265,10 @@ int manager(int argc, char ** argv) {
 	dims[0] = forestWidth;
 	dims[1] = forestHeight;
 
+	fprintf(stderr, "Waiting...\n");
 	long tasks, waiting = 0;
 	for (worker=1;worker<=workers;++worker) {
-		fprintf(stderr, "Initializing worker %d\n", worker);
+		fprintf(stderr, "\x1b[1FInitializing worker %d\n", worker);
 		MPI_Send(&command, 1, MPI_CHAR, worker, TAG_WORK_TYPE, MPI_COMM_WORLD);
 		MPI_Send(&dims, 2, MPI_LONG, worker, TAG_DIMENSIONS, MPI_COMM_WORLD);
 		tasks = computeWork(maxWork, trials, start, end, levels, &level, &levelWork, &taskCap, &works, &probs);
@@ -276,17 +278,20 @@ int manager(int argc, char ** argv) {
 		waiting++;
 	}
 	
-	fprintf(stderr, "Finished initializing workers %ld\n", waiting);
+	fprintf(stderr, "\x1b[1FFinished initializing workers %ld\n", waiting);
 
 	double *results;
 	results = malloc(sizeof(double) * levels);
 	
 	double dprob = (end-start)/(levels-1);
 
+	fprintf(stderr, "\x1b[1FTasks %5ld: %5ld sent %5ld received\n", totalJobs, jobsReceived+waiting, jobsReceived);
+
 	long task, source;
 	MPI_Status status;
 	while (waiting) {
 		MPI_Recv(&tasks, 1, MPI_LONG, MPI_ANY_SOURCE, TAG_JOB_COUNT, MPI_COMM_WORLD, &status);
+		jobsReceived++;
 		waiting--;
 		source = status.MPI_SOURCE;
 		
@@ -304,12 +309,12 @@ int manager(int argc, char ** argv) {
 
 		tasks = computeWork(maxWork, trials, start, end, levels, &level, &levelWork, &taskCap, &works, &probs);
 		if (tasks > 0) {
-			fprintf(stderr, "Sending %ld more to %ld\n", tasks, source);
 			waiting++;
 			MPI_Send(&tasks, 1, MPI_LONG, source, TAG_JOB_COUNT, MPI_COMM_WORLD);
 			MPI_Send(works, tasks, MPI_LONG, source, TAG_WORK, MPI_COMM_WORLD);
 			MPI_Send(probs, tasks, MPI_DOUBLE, source, TAG_PROBABILITY, MPI_COMM_WORLD);
 		}
+		fprintf(stderr, "\x1b[1FTasks %5ld: %5ld sent %5ld received\n", totalJobs, jobsReceived+waiting, jobsReceived);
 	}
 
 	tasks = 0;
