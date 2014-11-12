@@ -193,11 +193,11 @@ long computeWork(long maxWork, long trials, double start, double end, long level
 	}
 
 	for (task=0;work>0 && *level<levels;++task) {
-		long curWork = MIN(trials-*levelWork, work);
+		long curWork = MIN(*levelWork, work);
 		*levelWork -= curWork;
 		work -= curWork;
 		if (task >= *taskCap) {
-			*taskCap = MIN((*taskCap<<1),10);
+			*taskCap = MAX(*taskCap<<1,10);
 			*works = realloc(*works, *taskCap * sizeof(long));
 			*probs = realloc(*probs, *taskCap * sizeof(double));
 		}
@@ -249,9 +249,10 @@ int manager(int argc, char ** argv) {
 	long totalWork = levels * trials;
 	long workPerWorker = totalWork / workers + 1;
 
+	fprintf(stderr, "Total size (workers): %d %d\n", size, workers);
 	fprintf(stderr, "Total work (per worker): %ld (%ld)\n", totalWork, workPerWorker);
 
-	long maxWork = MIN(workPerWorker, 10000000 / forestWidth / forestHeight + 3);
+	long maxWork = MIN(workPerWorker, 50000000 / forestWidth / forestHeight + 3);
 	long level = -1;
 	long levelWork = 0;
 	long taskCap = 0;
@@ -263,25 +264,30 @@ int manager(int argc, char ** argv) {
 	dims[0] = forestWidth;
 	dims[1] = forestHeight;
 
-	long tasks;
+	long tasks, waiting = 0;
 	for (worker=1;worker<=workers;++worker) {
+		fprintf(stderr, "Initializing worker %d\n", worker);
 		MPI_Send(&command, 1, MPI_CHAR, worker, TAG_WORK_TYPE, MPI_COMM_WORLD);
 		MPI_Send(&dims, 2, MPI_LONG, worker, TAG_DIMENSIONS, MPI_COMM_WORLD);
 		tasks = computeWork(maxWork, trials, start, end, levels, &level, &levelWork, &taskCap, &works, &probs);
 		MPI_Send(&tasks, 1, MPI_LONG, worker, TAG_JOB_COUNT, MPI_COMM_WORLD);
 		MPI_Send(works, tasks, MPI_LONG, worker, TAG_WORK, MPI_COMM_WORLD);
 		MPI_Send(probs, tasks, MPI_DOUBLE, worker, TAG_PROBABILITY, MPI_COMM_WORLD);
+		waiting++;
 	}
+	
+	fprintf(stderr, "Finished initializing workers %ld\n", waiting);
 
 	double *results;
 	results = malloc(sizeof(double) * levels);
 	
-	double dprob = (end-start)/levels;
+	double dprob = (end-start)/(levels-1);
 
 	long task, source;
 	MPI_Status status;
-	while (1) {
+	while (waiting) {
 		MPI_Recv(&tasks, 1, MPI_LONG, MPI_ANY_SOURCE, TAG_JOB_COUNT, MPI_COMM_WORLD, &status);
+		waiting--;
 		source = status.MPI_SOURCE;
 		
 		curResults = realloc(curResults, sizeof(double) * tasks);
@@ -292,22 +298,26 @@ int manager(int argc, char ** argv) {
 		for (task=0;task<tasks;++task) {
 			double prob = probs[task];
 			double result = curResults[task];
-			level = (long)((prob-start)/dprob+0.5);
-			results[level] += result;
+			long recvLevel = (long)((prob-start)/dprob+0.5);
+			results[recvLevel] += result;
 		}
 
 		tasks = computeWork(maxWork, trials, start, end, levels, &level, &levelWork, &taskCap, &works, &probs);
 		if (tasks > 0) {
-			MPI_Send(&tasks, 1, MPI_LONG, worker, TAG_JOB_COUNT, MPI_COMM_WORLD);
-			MPI_Send(works, tasks, MPI_LONG, worker, TAG_WORK, MPI_COMM_WORLD);
-			MPI_Send(probs, tasks, MPI_DOUBLE, worker, TAG_PROBABILITY, MPI_COMM_WORLD);
+			fprintf(stderr, "Sending %ld more to %ld\n", tasks, source);
+			waiting++;
+			MPI_Send(&tasks, 1, MPI_LONG, source, TAG_JOB_COUNT, MPI_COMM_WORLD);
+			MPI_Send(works, tasks, MPI_LONG, source, TAG_WORK, MPI_COMM_WORLD);
+			MPI_Send(probs, tasks, MPI_DOUBLE, source, TAG_PROBABILITY, MPI_COMM_WORLD);
 		}
 	}
 
 	tasks = 0;
-	for (worker=1;worker<workers;++worker) {
+	for (worker=1;worker<=workers;++worker) {
 		MPI_Send(&tasks, 1, MPI_LONG, worker, TAG_JOB_COUNT, MPI_COMM_WORLD);
 	}
+
+	fprintf(stderr, "Sent terminate to all workers\n");
 
 	FILE *out = fopen(fname, "w");
 
@@ -352,9 +362,9 @@ void worker(int rank) {
 	Queue *q;
 	q = queue_create(dims[1]);
 
-	long *trials;
-	double *probs;
-	double *results;
+	long *trials = NULL;
+	double *probs = NULL;
+	double *results = NULL;
 
 	while (1) {
 		long tasks, task;
