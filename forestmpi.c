@@ -242,7 +242,7 @@ int manager(int argc, char ** argv) {
 	levels++;
 
 	char fname[300];
-	snprintf(fname, 300, "%s.%ld.%ld.%.2lf.%.2lf.%ld.%ld.ffd", argv[1], forestWidth, forestHeight, start, end, levels, trials);
+	snprintf(fname, 300, "%s.%ld.%ld.%.5lf.%.5lf.%ld.%ld.ffd", argv[1], forestWidth, forestHeight, start, end, levels, trials);
 
 	fprintf(stderr, "Filename %s\n", fname);
 
@@ -327,7 +327,7 @@ int manager(int argc, char ** argv) {
 	FILE *out = fopen(fname, "w");
 
 	for (level=0;level<levels;++level) {
-		fprintf(out, "%g %g\n", level*dprob+start, results[level]/levels);
+		fprintf(out, "%g %g\n", level*dprob+start, results[level]/trials);
 	}
 
 	fclose(out);
