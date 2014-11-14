@@ -242,7 +242,7 @@ int manager(int argc, char ** argv) {
 	levels++;
 
 	char fname[300];
-	snprintf(fname, 300, "%s.%ld.%ld.%.5lf.%.5lf.%ld.%ld.ffd", argv[1], forestWidth, forestHeight, start, end, levels, trials);
+	snprintf(fname, 300, "%s.%05ld.%05ld.%.6f.%.6f.%05ld.%05ld.ffd", argv[1], forestWidth, forestHeight, start, end, levels, trials);
 
 	fprintf(stderr, "Filename %s\n", fname);
 
