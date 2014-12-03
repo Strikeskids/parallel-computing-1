@@ -1,5 +1,5 @@
-a.out: glshell_SHELL.c
-	gcc -l GL -lGLU -lglut glshell_SHELL.c
+a.out: mandlebrot.c
+	gcc -l GL -lGLU -lglut mandlebrot.c
 
 clean:
 	rm a.out
