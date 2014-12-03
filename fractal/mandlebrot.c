@@ -26,8 +26,11 @@ float rect[] = {
 	4.0, 3.0
 };
 
+int iterations = 20;
+
 GLuint positionBuffer;
 GLuint rectUniform;
+GLuint iterationsUniform;
 GLuint mandlebrotProgram;
 
 void displayfunc(void) {
@@ -36,6 +39,7 @@ void displayfunc(void) {
 	glUseProgram(mandlebrotProgram);
 
 	glUniform4fv(rectUniform, 1, rect);
+	glUniform1iv(iterationsUniform, 1, &iterations);
 
 	glBindBuffer(GL_ARRAY_BUFFER, positionBuffer);
 	glEnableVertexAttribArray(0);
@@ -184,8 +188,9 @@ int main(int argc, char **argv) {
 	glBindVertexArray(vao);
 
 	mandlebrotProgram = initializeProgram();
-	rectUniform = glGetUniformLocation(mandlebrotProgram, "rect");
-	printf("Found rect %d\n", rectUniform);
+	rectUniform = glGetUniformLocation(mandlebrotProgram, "zoomRect");
+	iterationsUniform = glGetUniformLocation(mandlebrotProgram, "iterations");
+	printf("Found rect %d it %d\n", rectUniform, iterationsUniform);
 
 	initializeDrawRect();
 
