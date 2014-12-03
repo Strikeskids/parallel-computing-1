@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <GL/glut.h>
 
@@ -13,6 +14,7 @@
 #define N 600
 
 #define MANDLEMAX 1000
+#define MAX_SHADERS 100
 
 const float RECT_CORNERS[] = {
 	0, 0,
@@ -22,11 +24,11 @@ const float RECT_CORNERS[] = {
 };
 
 float rect[] = {
-	-2.0, -1.5,
+	0, 0,
 	4.0, 3.0
 };
 
-int iterations = 20;
+int iterations = 40;
 
 GLuint positionBuffer;
 GLuint rectUniform;
@@ -81,7 +83,7 @@ GLuint createProgramFromShaders(int num, GLuint *shaders) {
 	glLinkProgram(program);
 	GLint status;
 	
-	glGetProgramiv (program, GL_LINK_STATUS, &status);
+	glGetProgramiv(program, GL_LINK_STATUS, &status);
     if (status == GL_FALSE) {
 		GLint infoLogLength;
 		glGetProgramiv(program, GL_INFO_LOG_LENGTH, &infoLogLength);
@@ -134,19 +136,26 @@ GLuint createShader(GLenum shaderType, char *shaderData) {
 	return shader;
 }
 
-GLuint initializeProgram() {
+GLuint initializeProgram(char** shaderFiles) {
 	char *shaderData = NULL;
 
-	GLuint shaders[100];
+	GLuint shaders[MAX_SHADERS];
 	GLuint program;
 
 	int snum = 0;
 
-
-	readFile("mandle.vert", &shaderData);
-	shaders[snum++] = createShader(GL_VERTEX_SHADER, shaderData);
-	readFile("mandle.frag", &shaderData);
-	shaders[snum++] = createShader(GL_FRAGMENT_SHADER, shaderData);
+	for (snum=0;snum<MAX_SHADERS && shaderFiles[snum]; ++snum) {
+		readFile(shaderFiles[snum], &shaderData);
+		GLenum shtype;
+		if (strstr(shaderFiles[snum], "vert")) {
+			shtype = GL_VERTEX_SHADER;
+		} else if (strstr(shaderFiles[snum], "frag")) {
+			shtype = GL_FRAGMENT_SHADER;
+		} else {
+			return -1;
+		}
+		shaders[snum] = createShader(shtype, shaderData);
+	}
 
 	free(shaderData);
 
@@ -159,6 +168,14 @@ GLuint initializeProgram() {
 	return program;
 }
 
+void initializePrograms() {
+	char *mandleShaders[] = {"mandle.vert", "mandle.frag", NULL};
+
+	mandlebrotProgram = initializeProgram(mandleShaders);
+	rectUniform = glGetUniformLocation(mandlebrotProgram, "zoomRect");
+	iterationsUniform = glGetUniformLocation(mandlebrotProgram, "iterations");
+}
+
 void initialize(int argc, char **argv) {
 	glutInit(&argc,argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
@@ -169,6 +186,10 @@ void initialize(int argc, char **argv) {
 	glShadeModel(GL_SMOOTH);
 
 	glViewport(0,0,(GLsizei)M,(GLsizei)N);
+
+	GLuint vao;
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
 }
 
 void initializeDrawRect() {
@@ -179,22 +200,24 @@ void initializeDrawRect() {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
+void keyfunc(unsigned char key, int xscr, int yscr) {
+	if (key == 'w') {
+		int i;
+		for (i=0;i<4;++i) {
+			rect[i] /= 1.10;
+		}
+		glutPostRedisplay();
+	}
+}
+
+
 int main(int argc, char **argv) {
-
 	initialize(argc, argv);
-
-	GLuint vao;
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-
-	mandlebrotProgram = initializeProgram();
-	rectUniform = glGetUniformLocation(mandlebrotProgram, "zoomRect");
-	iterationsUniform = glGetUniformLocation(mandlebrotProgram, "iterations");
-	printf("Found rect %d it %d\n", rectUniform, iterationsUniform);
-
+	initializePrograms();
 	initializeDrawRect();
 
 	glutDisplayFunc(displayfunc);
+	glutKeyboardFunc(keyfunc);
 
 	glutMainLoop();
 

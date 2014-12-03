@@ -16,7 +16,7 @@ void main() {
 		z.y = 2*zo.x*zo.y + complexPosition.y;
 	}
 	if (iter == iterations) {
-		outputColor = vec4(0, 0, 0, 1.0f);
+		outputColor = vec4(0, 0, 0, 0);
 	} else {
 		float val = iter;
 		val /= iterations;
