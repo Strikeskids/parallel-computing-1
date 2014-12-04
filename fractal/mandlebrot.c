@@ -201,23 +201,54 @@ void initializeDrawRect() {
 }
 
 void keyfunc(unsigned char key, int xscr, int yscr) {
-	if (key == 'w') {
-		int i;
-		for (i=0;i<4;++i) {
-			rect[i] /= 1.10;
-		}
-		glutPostRedisplay();
+	switch (key) {
+		case 'i':
+			iterations *= 2;
+			break;
+		case 'o':
+			iterations /= 2;
+			if (iterations < 1)
+				iterations = 1;
+			break;
+		default:
+			return;
 	}
+	glutPostRedisplay();
 }
 
+void zoomImage(int dir, float xp, float yp) {
+	float x, y, z;
+	x = (xp / M - 0.5) * rect[2] + rect[0];
+	y = (0.5 - yp / N) * rect[3] + rect[1];
+	z = 1.15;
+	if (dir > 0) {
+		z = 1/z;	
+	}
+	rect[0] = (1-z)*x + z*rect[0];
+	rect[1] = (1-z)*y + z*rect[1];
+	rect[2] *= z;
+	rect[3] *= z;
+}
+
+void mouse(int button, int state, int x, int y) {
+	if (button == 3 || button == 4) {
+		if (state == GLUT_DOWN) {
+			zoomImage(button == 3 ? 1 : -1, x, y);
+			glutPostRedisplay();
+		}
+	}
+}
 
 int main(int argc, char **argv) {
 	initialize(argc, argv);
 	initializePrograms();
 	initializeDrawRect();
 
+	printf("%s\n", glGetString(GL_VERSION));
+
 	glutDisplayFunc(displayfunc);
 	glutKeyboardFunc(keyfunc);
+	glutMouseFunc(mouse);
 
 	glutMainLoop();
 
