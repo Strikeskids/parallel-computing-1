@@ -23,7 +23,7 @@ const float RECT_CORNERS[] = {
 	1, 0
 };
 
-float rect[] = {
+double rect[] = {
 	0, 0,
 	4.0, 3.0
 };
@@ -40,7 +40,7 @@ void displayfunc(void) {
 
 	glUseProgram(mandlebrotProgram);
 
-	glUniform4fv(rectUniform, 1, rect);
+	glUniform4dv(rectUniform, 1, rect);
 	glUniform1iv(iterationsUniform, 1, &iterations);
 
 	glBindBuffer(GL_ARRAY_BUFFER, positionBuffer);
@@ -216,8 +216,8 @@ void keyfunc(unsigned char key, int xscr, int yscr) {
 	glutPostRedisplay();
 }
 
-void zoomImage(int dir, float xp, float yp) {
-	float x, y, z;
+void zoomImage(int dir, double xp, double yp) {
+	double x, y, z;
 	x = (xp / M - 0.5) * rect[2] + rect[0];
 	y = (0.5 - yp / N) * rect[3] + rect[1];
 	z = 1.15;
