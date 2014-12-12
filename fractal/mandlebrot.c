@@ -12,6 +12,7 @@
 
 #define M 800
 #define N 600
+#define ZOOM 2
 
 #define MANDLEMAX 1000
 #define MAX_SHADERS 100
@@ -28,19 +29,25 @@ double rect[] = {
 	4.0, 3.0
 };
 
+int data[M][N];
+
 int iterations = 40;
 
 GLuint positionBuffer;
-GLuint rectUniform;
-GLuint iterationsUniform;
 GLuint mandlebrotProgram;
+GLuint iterationsUniform;
+GLuint iterationsTexture;
+GLuint iterationsTextureUniform;
 
 void displayfunc(void) {
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	glUseProgram(mandlebrotProgram);
 
-	glUniform4dv(rectUniform, 1, rect);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, iterationsTexture);
+	int textureActive = 0;
+	glUniform1iv(iterationsTextureUniform, 1, &textureActive);
 	glUniform1iv(iterationsUniform, 1, &iterations);
 
 	glBindBuffer(GL_ARRAY_BUFFER, positionBuffer);
@@ -172,8 +179,25 @@ void initializePrograms() {
 	char *mandleShaders[] = {"mandle.vert", "mandle.frag", NULL};
 
 	mandlebrotProgram = initializeProgram(mandleShaders);
-	rectUniform = glGetUniformLocation(mandlebrotProgram, "zoomRect");
+	iterationsTextureUniform = glGetUniformLocation(mandlebrotProgram, "iterationsTexture");
 	iterationsUniform = glGetUniformLocation(mandlebrotProgram, "iterations");
+}
+
+void reloadIterationTexture() {
+	glBindTexture(GL_TEXTURE_2D, iterationsTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, N, M, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void createIterationTexture() {
+	glGenTextures(1, &iterationsTexture);
+
+	glBindTexture(GL_TEXTURE_2D, iterationsTexture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	reloadIterationTexture();
 }
 
 void initialize(int argc, char **argv) {
@@ -200,6 +224,31 @@ void initializeDrawRect() {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
+void computeMandlebrot() {
+	int i, j;
+	for (i=0;i<N;++i) {
+		for (j=0;j<M;++j) {
+			double cx = rect[0] + (i * 1.0 / N - 0.5) * rect[2];
+			double cy = rect[1] + (j * 1.0 / M - 0.5) * rect[3];
+			double zx = 0, zy = 0;
+			int it;
+			for (it=0;it<iterations&&(zx*zx+zy*zy)<4;++it) {
+				double ox = zx;
+				double oy = zy;
+				zx = ox * ox - oy * oy + cx;
+				zy = 2 * ox * oy + cy;
+			}
+			data[j][i] = it;
+		}
+	}
+}
+
+void recalculate() {
+	computeMandlebrot();
+	reloadIterationTexture();
+	glutPostRedisplay();
+}
+
 void keyfunc(unsigned char key, int xscr, int yscr) {
 	switch (key) {
 		case 'i':
@@ -213,14 +262,14 @@ void keyfunc(unsigned char key, int xscr, int yscr) {
 		default:
 			return;
 	}
-	glutPostRedisplay();
+	recalculate();
 }
 
 void zoomImage(int dir, double xp, double yp) {
 	double x, y, z;
 	x = (xp / M - 0.5) * rect[2] + rect[0];
 	y = (0.5 - yp / N) * rect[3] + rect[1];
-	z = 1.15;
+	z = ZOOM;
 	if (dir > 0) {
 		z = 1/z;	
 	}
@@ -231,10 +280,10 @@ void zoomImage(int dir, double xp, double yp) {
 }
 
 void mouse(int button, int state, int x, int y) {
-	if (button == 3 || button == 4) {
+	if (button == 0 || button == 2) {
 		if (state == GLUT_DOWN) {
-			zoomImage(button == 3 ? 1 : -1, x, y);
-			glutPostRedisplay();
+			zoomImage(button == 0 ? 1 : -1, x, y);
+			recalculate();
 		}
 	}
 }
@@ -243,6 +292,8 @@ int main(int argc, char **argv) {
 	initialize(argc, argv);
 	initializePrograms();
 	initializeDrawRect();
+	computeMandlebrot();
+	createIterationTexture();
 
 	printf("%s\n", glGetString(GL_VERSION));
 
