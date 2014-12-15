@@ -241,7 +241,6 @@ void computeMandlebrot() {
 	int i, r;
 	MPI_Status status;
 	for (i=0;i<mpisize-1&&i<M;++i) {
-		printf("Sending column %d to worker %d\n", i, i+1);
 		MPI_Send(&i, 1, MPI_INT, i+1, TAG_COLUMN, MPI_COMM_WORLD);
 		MPI_Send(&iterations, 1, MPI_INT, i+1, TAG_ITERATIONS, MPI_COMM_WORLD);
 		MPI_Send(rect, 4, MPI_DOUBLE, i+1, TAG_BOUNDS, MPI_COMM_WORLD);
@@ -260,7 +259,6 @@ void computeMandlebrot() {
 			}
 		}
 		if (i < M) {
-			printf("Sending column %d to worker %d\n", i, status.MPI_SOURCE);
 			MPI_Send(&i, 1, MPI_INT, status.MPI_SOURCE, TAG_COLUMN, MPI_COMM_WORLD);
 			MPI_Send(&iterations, 1, MPI_INT, status.MPI_SOURCE, TAG_ITERATIONS, MPI_COMM_WORLD);
 			MPI_Send(rect, 4, MPI_DOUBLE, status.MPI_SOURCE, TAG_BOUNDS, MPI_COMM_WORLD);
