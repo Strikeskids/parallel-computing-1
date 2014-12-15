@@ -8,6 +8,8 @@
 
 #include <GL/glut.h>
 
+#include "mpi.h"
+
 #define SCALE(v, smin, smax, dmin, dmax) (v-smin)*(dmax-dmin)/(smax-smin)+dmax
 
 #define M 800
@@ -224,21 +226,34 @@ void initializeDrawRect() {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
+#define TAG_BOUNDS 0
+#define TAG_COLUMN 1
+#define TAG_ITERATIONS 2
+#define TAG_DATA 3
+
+int mpisize;
+
 void computeMandlebrot() {
-	int i, j;
-	for (i=0;i<N;++i) {
-		for (j=0;j<M;++j) {
-			double cx = rect[0] + (i * 1.0 / N - 0.5) * rect[2];
-			double cy = rect[1] + (j * 1.0 / M - 0.5) * rect[3];
-			double zx = 0, zy = 0;
-			int it;
-			for (it=0;it<iterations&&(zx*zx+zy*zy)<4;++it) {
-				double ox = zx;
-				double oy = zy;
-				zx = ox * ox - oy * oy + cx;
-				zy = 2 * ox * oy + cy;
-			}
-			data[j][i] = it;
+	int i, r;
+	MPI_Status status;
+	for (i=0;i<mpisize-1&&i<M;++i) {
+		printf("Sending column %d to worker %d\n", i, i+1);
+		MPI_Send(&i, 1, MPI_INT, i+1, TAG_COLUMN, MPI_COMM_WORLD);
+		MPI_Send(&iterations, 1, MPI_INT, i+1, TAG_ITERATIONS, MPI_COMM_WORLD);
+		MPI_Send(rect, 4, MPI_DOUBLE, i+1, TAG_BOUNDS, MPI_COMM_WORLD);
+	}
+	r = 0;
+	while (r < M) {
+		int c;
+		MPI_Recv(&c, 1, MPI_INT, MPI_ANY_SOURCE, TAG_COLUMN, MPI_COMM_WORLD, &status);
+		r += 1;
+		MPI_Recv(data[c], N, MPI_INT, status.MPI_SOURCE, TAG_DATA, MPI_COMM_WORLD, &status);
+		if (i < M) {
+			printf("Sending column %d to worker %d\n", i, status.MPI_SOURCE);
+			MPI_Send(&i, 1, MPI_INT, status.MPI_SOURCE, TAG_COLUMN, MPI_COMM_WORLD);
+			MPI_Send(&iterations, 1, MPI_INT, status.MPI_SOURCE, TAG_ITERATIONS, MPI_COMM_WORLD);
+			MPI_Send(rect, 4, MPI_DOUBLE, status.MPI_SOURCE, TAG_BOUNDS, MPI_COMM_WORLD);
+			i++;
 		}
 	}
 }
@@ -288,7 +303,7 @@ void mouse(int button, int state, int x, int y) {
 	}
 }
 
-int main(int argc, char **argv) {
+void manager(int argc, char **argv) {
 	initialize(argc, argv);
 	initializePrograms();
 	initializeDrawRect();
@@ -302,6 +317,55 @@ int main(int argc, char **argv) {
 	glutMouseFunc(mouse);
 
 	glutMainLoop();
+}
+
+void worker() {
+	unsigned int *coldata = data[0];
+	int c, r;
+	
+	MPI_Status status;
+	while (1) {
+		MPI_Recv(&c, 1, MPI_INT, 0, TAG_COLUMN, MPI_COMM_WORLD, &status);
+		if (c < 0) {
+			break;
+		}
+		MPI_Recv(&iterations, 1, MPI_INT, 0, TAG_ITERATIONS, MPI_COMM_WORLD, &status);
+		MPI_Recv(rect, 4, MPI_DOUBLE, 0, TAG_BOUNDS, MPI_COMM_WORLD, &status);
+		double x;
+		for (r=0;r<N;++r) {
+			double cx = rect[0] + (r * 1.0 / N - 0.5) * rect[2];
+			double cy = rect[1] + (c * 1.0 / M - 0.5) * rect[3];
+			double zx = 0, zy = 0;
+			int it;
+			for (it=0;it<iterations&&(zx*zx+zy*zy)<4;++it) {
+				double ox = zx;
+				double oy = zy;
+				zx = ox * ox - oy * oy + cx;
+				zy = 2 * ox * oy + cy;
+			}
+			coldata[r] = it;
+		}
+		MPI_Send(&c, 1, MPI_INT, 0, TAG_COLUMN, MPI_COMM_WORLD);
+		MPI_Send(coldata, N, MPI_INT, 0, TAG_DATA, MPI_COMM_WORLD);
+	}
+
+}
+
+
+int main(int argc, char **argv) {
+	MPI_Init(&argc, &argv);
+
+	int rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &mpisize);
+
+	if (rank == 0) {
+		manager(argc, argv);
+	} else {
+		worker(rank);
+		MPI_Finalize();
+		return 0;
+	}
 
 	return 0;
 }
