@@ -33,11 +33,13 @@ double rect[] = {
 
 int data[M][N];
 
+int minIterations = 1;
 int iterations = 40;
 
 GLuint positionBuffer;
 GLuint mandlebrotProgram;
 GLuint iterationsUniform;
+GLuint minIterationsUniform;
 GLuint iterationsTexture;
 GLuint iterationsTextureUniform;
 
@@ -51,6 +53,7 @@ void displayfunc(void) {
 	int textureActive = 0;
 	glUniform1iv(iterationsTextureUniform, 1, &textureActive);
 	glUniform1iv(iterationsUniform, 1, &iterations);
+	glUniform1iv(minIterationsUniform, 1, &minIterations);
 
 	glBindBuffer(GL_ARRAY_BUFFER, positionBuffer);
 	glEnableVertexAttribArray(0);
@@ -183,6 +186,7 @@ void initializePrograms() {
 	mandlebrotProgram = initializeProgram(mandleShaders);
 	iterationsTextureUniform = glGetUniformLocation(mandlebrotProgram, "iterationsTexture");
 	iterationsUniform = glGetUniformLocation(mandlebrotProgram, "iterations");
+	minIterationsUniform = glGetUniformLocation(mandlebrotProgram, "minimumIterations");
 }
 
 void reloadIterationTexture() {
@@ -242,12 +246,19 @@ void computeMandlebrot() {
 		MPI_Send(&iterations, 1, MPI_INT, i+1, TAG_ITERATIONS, MPI_COMM_WORLD);
 		MPI_Send(rect, 4, MPI_DOUBLE, i+1, TAG_BOUNDS, MPI_COMM_WORLD);
 	}
+	minIterations = iterations;
+	int j;
 	r = 0;
 	while (r < M) {
 		int c;
 		MPI_Recv(&c, 1, MPI_INT, MPI_ANY_SOURCE, TAG_COLUMN, MPI_COMM_WORLD, &status);
 		r += 1;
 		MPI_Recv(data[c], N, MPI_INT, status.MPI_SOURCE, TAG_DATA, MPI_COMM_WORLD, &status);
+		for (j=0;j<N;++j) {
+			if (data[c][j] < minIterations) {
+				minIterations = data[c][j];
+			}
+		}
 		if (i < M) {
 			printf("Sending column %d to worker %d\n", i, status.MPI_SOURCE);
 			MPI_Send(&i, 1, MPI_INT, status.MPI_SOURCE, TAG_COLUMN, MPI_COMM_WORLD);
