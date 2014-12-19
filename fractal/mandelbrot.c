@@ -10,8 +10,8 @@
 #include <glprogram.h>
 #include <rendertarget.h>
 
-#define M 600
-#define N 800
+#define windowHeight 600
+#define windowWidth 800
 
 #define ZOOM 2
 
@@ -35,6 +35,7 @@ GLuint cornersId;
 
 GLuint mandelbrotProgramId;
 GLuint iterationsUniformId;
+GLuint boundsUniformId;
 
 void drawMandlebrot() {
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -42,6 +43,7 @@ void drawMandlebrot() {
 	glUseProgram(mandlebrotProgramId);
 
 	glUniform1iv(iterationsUniformId, 1, &iterations);
+	glUniform4dv(boundsUniformId, 1, rect);
 
 	glBindBuffer(GL_ARRAY_BUFFER, cornersId);
 	glEnableVertexAttribArray(0);
@@ -65,19 +67,20 @@ void initializePrograms() {
 
 	mandlebrotProgramId = initializeProgram(mandleShaders);
 	
-	iterationsUniformId = glGetUniformLocation(mandlebrotProgram, "iterations");
+	iterationsUniformId = glGetUniformLocation(mandlebrotProgramId, "iterations");
+	boundsUniformId = glGetUniformLocation(mandlebrotProgramId, "bounds");
 }
 
 void initialize(int argc, char **argv) {
 	glutInit(&argc,argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
-	glutInitWindowSize(M,N);
-	glutInitWindowPosition(100,50);
+	glutInitWindowSize(windowWidth, windowHeight);
+	glutInitWindowPosition(100, 50);
 	glutCreateWindow("");
 	glClearColor(1.0,1.0,1.0,0.0);
 	glShadeModel(GL_SMOOTH);
 
-	glViewport(0,0,(GLsizei)M,(GLsizei)N);
+	glViewport(0, 0, windowWidth, windowHeight);
 
 	GLuint vao;
 	glGenVertexArrays(1, &vao);
@@ -114,8 +117,8 @@ void keyfunc(unsigned char key, int xscr, int yscr) {
 
 void zoomImage(int dir, double xp, double yp) {
 	double x, y, z;
-	x = (xp / M - 0.5) * rect[2] + rect[0];
-	y = (0.5 - yp / N) * rect[3] + rect[1];
+	x = (xp / windowHeight - 0.5) * rect[2] + rect[0];
+	y = (0.5 - yp / windowWidth) * rect[3] + rect[1];
 	z = ZOOM;
 	if (dir > 0) {
 		z = 1/z;	
@@ -137,7 +140,7 @@ void mouse(int button, int state, int x, int y) {
 
 void render() {
 	RenderTarget rt;
-	initRenderTarget(&rt, N, M);
+	initRenderTarget(&rt, windowWidth, windowHeight);
 	prerenderToTarget(&rt);
 	drawMandlebrot();
 	postrenderToTarget(&rt);
