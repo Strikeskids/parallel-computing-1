@@ -2,7 +2,7 @@
 
 int initRenderTarget(RenderTarget *tg, int width, int height) {
 	glGenFramebuffers(1, &tg->framebufferId);
-	glGetTextures(1, &tg->textureId);
+	glGenTextures(1, &tg->textureId);
 	tg->width = width;
 	tg->height = height;
 
