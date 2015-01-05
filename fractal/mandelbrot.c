@@ -7,15 +7,14 @@
 #include <string.h>
 
 #include <GL/glut.h>
-#include <glprogram.h>
-#include <rendertarget.h>
+
+#include "glprogram.h"
+#include "rendertarget.h"
 
 #define windowHeight 600
 #define windowWidth 800
 
 #define ZOOM 2
-
-#define MAX_SHADERS 100
 
 const float RECT_CORNERS[] = {
 	0, 0,
@@ -40,7 +39,7 @@ GLuint boundsUniformId;
 void drawMandlebrot() {
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	glUseProgram(mandlebrotProgramId);
+	glUseProgram(mandelbrotProgramId);
 
 	glUniform1iv(iterationsUniformId, 1, &iterations);
 	glUniform4dv(boundsUniformId, 1, rect);
@@ -63,12 +62,12 @@ void displayfunc(void) {
 }
 
 void initializePrograms() {
-	char *mandleShaders[] = {"mandle.vert", "mandle.frag", NULL};
+	char *mandelShaders[] = {"mandel.vert", "mandel.frag", NULL};
 
-	mandlebrotProgramId = initializeProgram(mandleShaders);
+	mandelbrotProgramId = createProgram(mandelShaders);
 	
-	iterationsUniformId = glGetUniformLocation(mandlebrotProgramId, "iterations");
-	boundsUniformId = glGetUniformLocation(mandlebrotProgramId, "bounds");
+	iterationsUniformId = glGetUniformLocation(mandelbrotProgramId, "iterations");
+	boundsUniformId = glGetUniformLocation(mandelbrotProgramId, "bounds");
 }
 
 void initialize(int argc, char **argv) {

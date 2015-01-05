@@ -40,13 +40,16 @@ void postrenderToTarget(RenderTarget *tg) {
 int saveTextureToFile(FILE *file, RenderTarget *tg) {
 	glBindTexture(GL_TEXTURE_2D, tg->textureId);
 
-	int bufsize = tg->width * tg->height * 3;
-	char *buffer = malloc(bufsize);
+	int linesize = tg->width * 3;
+	char *buffer = malloc(linesize * tg->height);
 
 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, buffer);
 
 	fprintf(file, "P6\n%d\n%d\n255\n", tg->width, tg->height);
-	fwrite(buffer, 1, bufsize, file);
+	int i;
+	for (i=tg->height-1;i>=0;--i) {
+		fwrite(buffer+i*linesize, 1, linesize, file);
+	}
 
 	free(buffer);
 	glBindTexture(GL_TEXTURE_2D, 0);
