@@ -1,0 +1,18 @@
+#ifndef TAGS_H
+#define TAGS_H
+
+#define TAG_DIMENSIONS 0x1001
+#define TAG_CONWAY_DATA 0x1002
+
+#define TAG_NEIGHBORS 0x1003
+
+#define TAG_ORDER_SET 0x2000
+#define TAG_ORDER_RES 0x2001
+
+#define TAG_WORKER_BARRIER 0x3000
+#define TAG_WORKER_TASK 0x3001
+
+#define TASK_COMPUTE 0x3002
+#define TASK_REPORT 0x3003
+
+#endif
