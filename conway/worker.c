@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "mpi.h"
 
@@ -14,7 +15,7 @@ void exchangeData(Worker w, char **data, int dir, int send, int recv, int len);
 void exchangeSides(Worker w, char **data, int lower, int upper, int width, int height);
 void accumulate(char **src, char **dest, int width, int height);
 
-void updateOrder(Worker w, MPI_Status status, int order) {
+void updateOrder(Worker w, MPI_Status status, int order, int lower, int upper) {
 	if (w.surrounding[lower] == status.MPI_SOURCE) {
 		w.order[lower] = order;
 	} else if (w.surrounding[upper] == status.MPI_SOURCE) {
@@ -40,6 +41,8 @@ void workerBarrier(Worker w) {
 }
 
 void findOrder(Worker w, int lower, int upper) {
+	MPI_Status status;
+
 	if (w.surrounding[lower] == w.rank || w.surrounding[upper] == w.rank) {
 		w.order[lower] = -1;
 		w.order[upper] = -1;
@@ -56,9 +59,9 @@ void findOrder(Worker w, int lower, int upper) {
 	
 	if (w.rank < w.surrounding[lower]) {
 		MPI_Recv(&order, 1, MPI_INT, MPI_ANY_SOURCE, TAG_ORDER_SET, MPI_COMM_WORLD, &status);
-		updateOrder(w, status, order);
+		updateOrder(w, status, order, lower, upper);
 		MPI_Recv(&order, 1, MPI_INT, MPI_ANY_SOURCE, TAG_ORDER_SET, MPI_COMM_WORLD, &status);
-		updateOrder(w, status, order);
+		updateOrder(w, status, order, lower, upper);
 
 		if (w.order[lower] == w.order[upper]) {
 			w.order[upper] = 2;
@@ -80,14 +83,15 @@ void findOrder(Worker w, int lower, int upper) {
 		MPI_Send(&w.order[upper], 1, MPI_INT, w.surrounding[upper], TAG_ORDER_SET, MPI_COMM_WORLD);
 
 		MPI_Recv(&order, 1, MPI_INT, MPI_ANY_SOURCE, TAG_ORDER_RES, MPI_COMM_WORLD, &status);
-		updateOrder(w, status, order);
+		updateOrder(w, status, order, lower, upper);
 		MPI_Recv(&order, 1, MPI_INT, MPI_ANY_SOURCE, TAG_ORDER_RES, MPI_COMM_WORLD, &status);
-		updateOrder(w, status, order);
+		updateOrder(w, status, order, lower, upper);
 	}
-	workerBarrier();
+	workerBarrier(w);
 }
 
 void exchangeData(Worker w, char **data, int dir, int send, int recv, int len) {
+	MPI_Status status;
 	if (w.surrounding[dir] < w.rank) {
 		MPI_Recv(data[recv], len, MPI_CHAR, w.surrounding[dir], TAG_CONWAY_DATA, MPI_COMM_WORLD, &status);
 		MPI_Send(data[send], len, MPI_CHAR, w.surrounding[dir], TAG_CONWAY_DATA, MPI_COMM_WORLD);
@@ -105,16 +109,16 @@ void exchangeSides(Worker w, char **data, int lower, int upper, int width, int h
 		memcpy(data[height+1], data[1], width);
 		memcpy(data[0], data[height], width);
 		for (i=0;i<3;++i) {
-			workerBarrier();
+			workerBarrier(w);
 		}
 	} else {
 		for (i=0;i<3;++i) {
 			if (w.order[lower] == i) {
-				exchangeData(w, con, lower, 1, 0, width);
+				exchangeData(w, data, lower, 1, 0, width);
 			} else if (w.order[upper] == i) {
-				exchangeData(w, con, upper, height, height+1, width);
+				exchangeData(w, data, upper, height, height+1, width);
 			}
-			workerBarrier();
+			workerBarrier(w);
 		}
 	}
 }

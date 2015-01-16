@@ -1,7 +1,9 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "conwayutil.h"
 #include "tags.h"
+#include "mpi.h"
 
 char **allocConway(int width, int height) {
 	char **c;

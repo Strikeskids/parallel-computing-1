@@ -5,12 +5,13 @@
 // 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <GL/glut.h>
 #include <math.h>
 
 #include "mpi.h"
 
-#include "conwayuti.h"
+#include "conwayutil.h"
 #include "worker.h"
 #include "tags.h"
 
@@ -20,9 +21,7 @@
 
 #define MAX_WORKER_SIDE 100
 
-int windowWidth = WINDOW_WIDTH, windowHeight = WINDOW_HEIGHT;
-int squareSize = SQUARE_SIZE;
-int squareWidth = windowWidth / squareSize, squareHeight = windowHeight / squareSize;
+int windowWidth, windowHeight, squareSize, squareWidth, squareHeight;
 
 char **con;
 
@@ -78,7 +77,7 @@ void onestep() {
 	int worker, r, c;
 	char *buffer = malloc((workerSide+1)*(workerSide+1));
 	for (worker=0;worker<workerCount;++worker) {
-		cur = workers[worker]
+		cur = workers[worker];
 		MPI_Recv(buffer, cur.width*cur.height, MPI_CHAR, cur.rank, TAG_CONWAY_DATA, MPI_COMM_WORLD, &status);
 		for (r=cur.r+cur.height-1;r>=cur.r;--r) {
 			memcpy(&con[r][cur.c], &buffer[r*cur.width], cur.width);
@@ -111,19 +110,19 @@ void keyfunc(unsigned char key,int xscr,int yscr) {
 }
 
 void reshape(int wscr,int hscr) {
-	w=wscr; h=hscr;
-	glViewport(0,0,(GLsizei)w,(GLsizei)h);
+	windowWidth=wscr; windowHeight=hscr;
+	glViewport(0,0,(GLsizei)windowWidth,(GLsizei)windowHeight);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 
-	gluOrtho2D(0,w-1,0,h-1);
+	gluOrtho2D(0,windowWidth-1,0,windowHeight-1);
 	glMatrixMode(GL_MODELVIEW);
 }
 
 void initializeWindow(int *argc, char* argv[]) {
 	glutInit(argc,argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
-	glutInitWindowSize(w,h);
+	glutInitWindowSize(windowWidth, windowHeight);
 	glutInitWindowPosition(100,50);
 	glutCreateWindow("Conway's Game of Life");
 
@@ -140,8 +139,7 @@ void initializeWindow(int *argc, char* argv[]) {
 void initializeWorkers(int size) {
 	int i, r, c, up, left;
 
-
-	int workerHeight, workerWidth;
+	int workerHeight, workerWidth, worker;
 	
 	int heightLeft, widthLeft;
 	int heights[MAX_WORKER_SIDE], widths[MAX_WORKER_SIDE];
@@ -150,7 +148,7 @@ void initializeWorkers(int size) {
 		return;
 
 	workerSide = (int) sqrt(size-1);
-	workerCount = workerSide * workerSide, worker;
+	workerCount = workerSide * workerSide;
 
 	int workerHeightCount = workerSide, workerWidthCount = workerSide;
 	workerHeight = squareHeight / workerHeightCount;
@@ -160,7 +158,7 @@ void initializeWorkers(int size) {
 	widthLeft = squareWidth;
 	for (i=workerSide-1;i>=0;--i) {
 		heights[i] = workerHeight;
-		heightLeft -= heights[i] 
+		heightLeft -= heights[i];
 		widths[i] = workerWidth;
 		widthLeft -= widths[i];
 		if (workerHeight * i < heightLeft) {
@@ -171,7 +169,7 @@ void initializeWorkers(int size) {
 		}
 	}
 
-	workers = malloc(workers * sizeof(WorkerData));
+	workers = malloc(workerCount * sizeof(WorkerData));
 
 	WorkerData cur;
 	cur.rank = 1;
@@ -195,7 +193,7 @@ void initializeWorkers(int size) {
 	}
 
 	for (worker=0;worker<workerCount;++worker) {
-		cur = workers[worker]
+		cur = workers[worker];
 
 		up = (cur.wr+workerSide-1)%workerSide*workerSide+cur.wc;
 		left = (cur.wc+workerSide-1)%workerSide+cur.wr*workerSide;
@@ -207,7 +205,7 @@ void initializeWorkers(int size) {
 
 	char *buffer = NULL;
 	for (worker=0;worker<workerCount;++worker) {
-		cur = workers[worker]
+		cur = workers[worker];
 		
 		buffer = realloc(buffer, cur.width * cur.height);
 		for (r=cur.r+cur.height-1;r>=cur.r;--r) {
@@ -221,6 +219,12 @@ void initializeWorkers(int size) {
 }
 
 void manager(int* argc, char* argv[], int size) {
+	windowWidth = WINDOW_WIDTH;
+	windowHeight = WINDOW_HEIGHT;
+	squareSize = SQUARE_SIZE;
+	squareWidth = windowWidth / squareSize;
+	squareHeight = windowHeight / squareSize;
+
 	FILE* fin;
 	int x,y;
 	char ch;
@@ -246,15 +250,15 @@ void manager(int* argc, char* argv[], int size) {
 	glutMainLoop();
 }
 
-int main(int argc,char* argv[]) {  
-	MPI_Init(&argc, argv);
+int main(int argc, char* argv[]) {  
+	MPI_Init(&argc, &argv);
 
 	int rank, size;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 
 	if (rank == 0) {
-		manager(&argc, char* argv[], size);
+		manager(&argc, argv, size);
 	} else {
 		work(rank, size);
 	}
