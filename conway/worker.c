@@ -1,38 +1,18 @@
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "mpi.h"
+
 #include "tags.h"
+#include "conwayutil.h"
+#include "worker.h"
 
-typedef struct Worker_struct {
-	int rank;
-	int size;
-	int width;
-	int height;
-	int surrounding[4];
-	int order[4];
-} Worker;
 
-char **allocConway(int width, int height);
 void findOrder(Worker w, int i1, int i2);
 void workerBarrier(Worker w);
 void exchangeData(Worker w, char **data, int dir, int send, int recv, int len);
 void exchangeSides(Worker w, char **data, int lower, int upper, int width, int height);
 void accumulate(char **src, char **dest, int width, int height);
-
-char **allocConway(int width, int height) {
-	char **c;
-	int ptrsize, arrsize;
-	int r;
-
-	ptrsize = height*sizeof(char *);
-	arrsize = height*width;
-	c = malloc(ptrsize + arrsize);
-	c[0] = (char *)c+ptrsize;
-	for (r=1;r<height;++r) {
-		c[r] = c[r-1]+width;
-	}
-	memset(c[0], 0, arrsize);
-	return c;
-}
 
 void updateOrder(Worker w, MPI_Status status, int order) {
 	if (w.surrounding[lower] == status.MPI_SOURCE) {
@@ -148,11 +128,6 @@ void accumulate(char **src, char **dest, int width, int height) {
 		}
 	}
 }
-
-#define UP 0
-#define RIGHT 1
-#define DOWN 2
-#define LEFT 3
 
 void work(int rank, int size) {
 	MPI_Status status;

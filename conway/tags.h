@@ -12,7 +12,5 @@
 #define TAG_WORKER_BARRIER 0x3000
 #define TAG_WORKER_TASK 0x3001
 
-#define TASK_COMPUTE 0x3002
-#define TASK_REPORT 0x3003
-
 #endif
+
