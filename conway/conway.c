@@ -17,7 +17,7 @@
 
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
-#define SQUARE_SIZE 5
+#define SQUARE_SIZE 20
 
 #define MAX_WORKER_SIDE 100
 
@@ -87,8 +87,8 @@ void onestep() {
 	for (worker=0;worker<workerCount;++worker) {
 		cur = workers[worker];
 		MPI_Recv(buffer, cur.width*cur.height, MPI_CHAR, cur.rank, TAG_CONWAY_DATA, MPI_COMM_WORLD, &status);
-		for (r=cur.r+cur.height-1;r>=cur.r;--r) {
-			memcpy(&con[r][cur.c], &buffer[r*cur.width], cur.width);
+		for (r=cur.height-1;r>=0;--r) {
+			memcpy(&con[cur.r+r][cur.c], &buffer[r*cur.width], cur.width);
 		}
 	}
 	free(buffer);
@@ -216,6 +216,7 @@ void initializeWorkers(int size) {
 
 		up = (cur.wr+workerSide-1)%workerSide*workerSide + cur.wc;
 		left = (cur.wc+workerSide-1)%workerSide + cur.wr*workerSide;
+		fprintf(stderr, "Worker %d (%d, %d) up %d left %d\n", worker, cur.wr, cur.wc, up, left);
 
 		cur.surrounding[UP] = workers[up].rank;
 		cur.surrounding[LEFT] = workers[left].rank;
@@ -272,7 +273,7 @@ void manager(int* argc, char* argv[], int size) {
 		for (x=0;x<36;x++) {
 			fread(&ch,sizeof(char),1,fin);
 			if (ch!='.')
-				con[squareHeight-9+y][squareWidth-36+x]=1;
+				con[y][x]=1;
 		}
 		fread(&ch,sizeof(char),1,fin);
 	}
