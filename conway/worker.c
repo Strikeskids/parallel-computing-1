@@ -8,7 +8,6 @@
 #include "conwayutil.h"
 #include "worker.h"
 
-
 void findOrder(Worker *w, int i1, int i2);
 void workerBarrier(Worker w);
 void exchangeData(Worker w, char **data, int dir, int send, int recv, int len);
@@ -126,10 +125,10 @@ void exchangeSides(Worker w, char **data, int lower, int upper, int width, int h
 	} else {
 		for (i=0;i<3;++i) {
 			if (w.order[lower] == i) {
-				fprintf(stderr, "Worker %d exchanging with %d\n", w.rank, w.surrounding[lower]);
+				fprintf(stderr, "Worker %d <-> %d %d\n", w.rank, w.surrounding[lower], lower);
 				exchangeData(w, data, lower, 1, 0, width);
 			} else if (w.order[upper] == i) {
-				fprintf(stderr, "Worker %d exchanging with %d\n", w.rank, w.surrounding[upper]);
+				fprintf(stderr, "Worker %d <-> %d %d\n", w.rank, w.surrounding[upper], upper);
 				exchangeData(w, data, upper, height, height+1, width);
 			}
 			workerBarrier(w);
@@ -184,7 +183,7 @@ void work(int rank, int size) {
 	for (i=0;i<3;++i) {
 		for (r=0;r<4;++r) {
 			if (w.order[r] == i) {
-				fprintf(stderr, "Worker %d -> %d rnd %d\n", w.rank, w.surrounding[r], i);
+				fprintf(stderr, "Worker %d -> %d : %d rnd %d\n", w.rank, w.surrounding[r], r, i);
 			}
 		}
 	}
@@ -199,17 +198,55 @@ void work(int rank, int size) {
 		case TASK_COMPUTE:
 			exchangeSides(w, con, UP, DOWN, w.width, w.height);
 			accumulate(con, coltally+1, w.width, w.height);
+			if (w.rank) {
+				fflush(stderr);
+				for (r=0;r<w.height;++r) {
+					fprintf(stderr, "%d%3d%d  ", w.rank, r, !!con[r+1]);
+					for (c=0;c<w.width;++c) {
+						fprintf(stderr, "%c", con[r+1][c] ? '+' : '.');
+					}
+					for (c=0;c<w.width;++c) {
+						fprintf(stderr, "%1d", coltally[c+1][r]);
+					}
+					fprintf(stderr, "\n");
+					fflush(stderr);
+				}
+				fflush(stderr);
+			}
 			
 			exchangeSides(w, coltally, LEFT, RIGHT, w.height, w.width);
 			accumulate(coltally, alltally, w.height, w.width);
+			if (w.rank) {
+				fflush(stderr);
+				for (r=0;r<w.height;++r) {
+					fprintf(stderr, "%d%3d%d  ", w.rank, r, !!con[r+1]);
+					for (c=0;c<w.width;++c) {
+						fprintf(stderr, "%1d", coltally[c+1][r]);
+					}
+					for (c=0;c<w.width;++c) {
+						fprintf(stderr, "%1d", alltally[r][c]);
+					}
+					fprintf(stderr, "\n");
+					fflush(stderr);
+				}
+				fflush(stderr);
+			}
 		
 			for (r=w.height-1;r>=0;--r) {
 				for (c=w.width-1;c>=0;--c) {
+					alltally[r][c] -= con[r+1][c];
 					con[r+1][c] = !!(alltally[r][c] == 3 || alltally[r][c] == 2 && con[r+1][c]);
 				}
 			}
 			break;
 		case TASK_REPORT:
+			fflush(stderr);
+			fprintf(stderr, "%d ", w.rank); 
+			for (i=0;i<w.width*w.height;++i) {
+				fprintf(stderr, "%1d", con[1][i]);
+			}
+			fprintf(stderr, "\n");
+			fflush(stderr);
 			MPI_Send(con[1], w.width*w.height, MPI_CHAR, 0, TAG_CONWAY_DATA, MPI_COMM_WORLD);
 			break;
 		}
