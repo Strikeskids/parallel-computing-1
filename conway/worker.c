@@ -27,7 +27,6 @@ void workerBarrier(Worker w) {
 	int token, next, prev;
 	next = w.rank % (w.size-1) + 1;
 	prev = (w.rank+w.size-3) % (w.size-1) + 1;
-	fprintf(stderr, "BARRIER start %d send %d recv %d\n", w.rank, next, prev);
 	if (next == w.rank || prev == w.rank) {
 		return;
 	}
@@ -39,7 +38,6 @@ void workerBarrier(Worker w) {
 		MPI_Recv(&token, 1, MPI_INT, prev, TAG_WORKER_BARRIER, MPI_COMM_WORLD, &status);
 		MPI_Send(&token, 1, MPI_INT, next, TAG_WORKER_BARRIER, MPI_COMM_WORLD);
 	}
-	fprintf(stderr, "BARRIER finished %d\n", w.rank);
 }
 
 void findOrder(Worker *w, int lower, int upper) {
@@ -125,10 +123,8 @@ void exchangeSides(Worker w, char **data, int lower, int upper, int width, int h
 	} else {
 		for (i=0;i<3;++i) {
 			if (w.order[lower] == i) {
-				fprintf(stderr, "Worker %d <-> %d %d\n", w.rank, w.surrounding[lower], lower);
 				exchangeData(w, data, lower, 1, 0, width);
 			} else if (w.order[upper] == i) {
-				fprintf(stderr, "Worker %d <-> %d %d\n", w.rank, w.surrounding[upper], upper);
 				exchangeData(w, data, upper, height, height+1, width);
 			}
 			workerBarrier(w);
@@ -137,7 +133,6 @@ void exchangeSides(Worker w, char **data, int lower, int upper, int width, int h
 }
 
 void accumulate(char **src, char **dest, int width, int height) {
-	fprintf(stderr, "Accumulate %p to %p\n", src, dest);
 	int r, c;
 	for (c=width-1;c>=0;--c) {
 		dest[c][0] = src[0][c] + src[1][c] + src[2][c];
@@ -180,19 +175,10 @@ void work(int rank, int size) {
 	findOrder(&w, UP, DOWN);
 	findOrder(&w, RIGHT, LEFT);
 
-	for (i=0;i<3;++i) {
-		for (r=0;r<4;++r) {
-			if (w.order[r] == i) {
-				fprintf(stderr, "Worker %d -> %d : %d rnd %d\n", w.rank, w.surrounding[r], r, i);
-			}
-		}
-	}
-	
 	fprintf(stderr, "Worker found orders\n");
 
 	while (1) {
 		MPI_Bcast(&task, 1, MPI_INT, 0, MPI_COMM_WORLD);
-		fprintf(stderr, "Received task %d to %d\n", task, w.rank);
 
 		switch (task) {
 		case TASK_COMPUTE:

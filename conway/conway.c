@@ -17,7 +17,7 @@
 
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
-#define SQUARE_SIZE 20
+#define SQUARE_SIZE 3
 
 #define MAX_WORKER_SIDE 100
 
@@ -71,12 +71,10 @@ void onestep() {
 	if (!initialized)
 		return;
 	
-	fprintf(stderr, "Sending compute\n");
 	int task;
 	task = TASK_COMPUTE;
 	MPI_Bcast(&task, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-	fprintf(stderr, "Sending report\n");
 	task = TASK_REPORT;
 	MPI_Bcast(&task, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
