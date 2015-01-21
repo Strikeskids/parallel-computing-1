@@ -23,7 +23,7 @@
 
 int windowWidth, windowHeight, squareSize, squareWidth, squareHeight;
 
-char **con;
+char **con = NULL;
 
 int stepOnIdle=0;
 
@@ -41,6 +41,8 @@ typedef struct WorkerData_struct {
 WorkerData *workers = NULL;
 char *buffer = NULL;
 int workerSide, workerCount;
+int workerWidth, workerHeight;
+int initialized = 0;
  
 void display(void) {
 	int r,c;
@@ -65,17 +67,23 @@ void display(void) {
 }
 
 void onestep() {
+
+	if (!initialized)
+		return;
+	
+	fprintf(stderr, "Sending compute\n");
 	int task;
 	task = TASK_COMPUTE;
 	MPI_Bcast(&task, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
+	fprintf(stderr, "Sending report\n");
 	task = TASK_REPORT;
 	MPI_Bcast(&task, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
 	WorkerData cur;
 	MPI_Status status;
 	int worker, r, c;
-	char *buffer = malloc((workerSide+1)*(workerSide+1));
+	char *buffer = malloc((workerWidth+1)*(workerHeight+1));
 	for (worker=0;worker<workerCount;++worker) {
 		cur = workers[worker];
 		MPI_Recv(buffer, cur.width*cur.height, MPI_CHAR, cur.rank, TAG_CONWAY_DATA, MPI_COMM_WORLD, &status);
@@ -83,6 +91,7 @@ void onestep() {
 			memcpy(&con[r][cur.c], &buffer[r*cur.width], cur.width);
 		}
 	}
+	free(buffer);
 }
 
 void idle(void) {
@@ -139,20 +148,25 @@ void initializeWindow(int *argc, char* argv[]) {
 void initializeWorkers(int size) {
 	int i, r, c, up, left;
 
-	int workerHeight, workerWidth, worker;
+	int worker;
 	
 	int heightLeft, widthLeft;
 	int heights[MAX_WORKER_SIDE], widths[MAX_WORKER_SIDE];
 
-	if (workerSide > MAX_WORKER_SIDE)
-		return;
-
 	workerSide = (int) sqrt(size-1);
 	workerCount = workerSide * workerSide;
+
+	if (workerSide > MAX_WORKER_SIDE) {
+		fprintf(stderr, "Invalid number of workers\n");
+		return;
+	}
+	fprintf(stderr, "Valid number of workers\n");
 
 	int workerHeightCount = workerSide, workerWidthCount = workerSide;
 	workerHeight = squareHeight / workerHeightCount;
 	workerWidth = squareWidth / workerWidthCount;
+
+	fprintf(stderr, "Worker: rows %d cols %d width %d height %d\n", workerHeightCount, workerWidthCount , workerWidth, workerHeight);
 
 	heightLeft = squareHeight;
 	widthLeft = squareWidth;
@@ -168,6 +182,7 @@ void initializeWorkers(int size) {
 			widths[i]++;
 		}
 	}
+	fprintf(stderr, "Found worker heights\n");
 
 	workers = malloc(workerCount * sizeof(WorkerData));
 
@@ -175,15 +190,17 @@ void initializeWorkers(int size) {
 	cur.rank = 1;
 	
 	worker = 0;
-	for (cur.wc=0,cur.c=0;cur.wc<workerSide;++cur.wc,cur.c+=cur.width) {
-		for (cur.wr=0,cur.r=0;cur.wr<workerSide;++cur.wr,cur.r+=cur.height) {
+	for (cur.wr=0,cur.r=0;cur.wr<workerSide;++cur.wr,cur.r+=cur.height) {
+		for (cur.wc=0,cur.c=0;cur.wc<workerSide;++cur.wc,cur.c+=cur.width) {
 			cur.width = widths[cur.wc];
 			cur.height = heights[cur.wr];
 
-			workers[worker++] = cur;
+			workers[cur.wr*workerSide+cur.wc] = cur;
 			cur.rank++;
 		}
 	}
+
+	fprintf(stderr, "Created workers\n");
 
 	cur.width = 0;
 	cur.height = 0;
@@ -192,30 +209,46 @@ void initializeWorkers(int size) {
 		MPI_Send(&cur.width, 2, MPI_INT, cur.rank, TAG_DIMENSIONS, MPI_COMM_WORLD);
 	}
 
+	fprintf(stderr, "Dismissed useless workers\n");
+
 	for (worker=0;worker<workerCount;++worker) {
 		cur = workers[worker];
 
-		up = (cur.wr+workerSide-1)%workerSide*workerSide+cur.wc;
-		left = (cur.wc+workerSide-1)%workerSide+cur.wr*workerSide;
+		up = (cur.wr+workerSide-1)%workerSide*workerSide + cur.wc;
+		left = (cur.wc+workerSide-1)%workerSide + cur.wr*workerSide;
+
 		cur.surrounding[UP] = workers[up].rank;
 		cur.surrounding[LEFT] = workers[left].rank;
 		workers[up].surrounding[DOWN] = cur.rank;
 		workers[left].surrounding[RIGHT] = cur.rank;
+
+		workers[worker] = cur;
 	}
 
-	char *buffer = NULL;
+	fprintf(stderr, "Found surrounding worker values\n");
+
+	char *buffer;
+	buffer = malloc((workerHeight+1)*(workerWidth+1));
+
 	for (worker=0;worker<workerCount;++worker) {
 		cur = workers[worker];
+
+		fprintf(stderr, "Copying to worker %d: (%d, %d)\n", cur.rank, cur.width, cur.height);
 		
-		buffer = realloc(buffer, cur.width * cur.height);
-		for (r=cur.r+cur.height-1;r>=cur.r;--r) {
-			memcpy(&buffer[r*cur.width], &con[r][cur.c], cur.width);
+		for (r=cur.height-1;r>=0;--r) {
+			memcpy(&buffer[r*cur.width], &con[r+cur.r][cur.c], cur.width);
 		}
+		fprintf(stderr, "Finished copying rows\n");
 
 		MPI_Send(&cur.width, 2, MPI_INT, cur.rank, TAG_DIMENSIONS, MPI_COMM_WORLD);
 		MPI_Send(buffer, cur.width*cur.height, MPI_CHAR, cur.rank, TAG_CONWAY_DATA, MPI_COMM_WORLD);
 		MPI_Send(&cur.surrounding, 4, MPI_INT, cur.rank, TAG_NEIGHBORS, MPI_COMM_WORLD);
+		fprintf(stderr, "Sent data to worker\n");
 	}
+
+	fprintf(stderr, "Sent initial instructions to workers\n");
+	free(buffer);
+	fprintf(stderr, "Freed initial buffer\n");
 }
 
 void manager(int* argc, char* argv[], int size) {
@@ -230,10 +263,10 @@ void manager(int* argc, char* argv[], int size) {
 	char ch;
 
 	initializeWindow(argc, argv);
+	fprintf(stderr, "Initialized window\n");
 
-	con = malloc(squareWidth * squareHeight);
+	con = allocConway(squareWidth, squareHeight);
 
-	memset(con, 0, sizeof(con));
 	fin=fopen("glider_gun.txt","r");
 	for (y=0;y<9;y++) {
 		for (x=0;x<36;x++) {
@@ -245,9 +278,15 @@ void manager(int* argc, char* argv[], int size) {
 	}
 	fclose(fin);
 
+	fprintf(stderr, "Loaded configuration\n");
 	initializeWorkers(size);
+	fprintf(stderr, "Initialized workers\n");
+
+	initialized = 1;
 
 	glutMainLoop();
+
+	free(workers);
 }
 
 int main(int argc, char* argv[]) {  
