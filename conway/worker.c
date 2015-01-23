@@ -63,36 +63,58 @@ void findOrder(Worker *w, int lower, int upper) {
 	fprintf(stderr, "Worker %d comparing %d %d\n", w->rank, w->surrounding[lower], w->surrounding[upper]);
 	
 	if (w->rank < w->surrounding[lower]) {
-		fprintf(stderr, "Worker local min\n");
+		fprintf(stderr, "%d local min\n", w->rank);
+
 		MPI_Recv(&order, 1, MPI_INT, MPI_ANY_SOURCE, TAG_ORDER_SET, MPI_COMM_WORLD, &status);
+		fprintf(stderr, "%d -> %d : %d\n", status.MPI_SOURCE, w->rank, order);
 		updateOrder(w, status, order, lower, upper);
+
 		MPI_Recv(&order, 1, MPI_INT, MPI_ANY_SOURCE, TAG_ORDER_SET, MPI_COMM_WORLD, &status);
+		fprintf(stderr, "%d -> %d : %d\n", status.MPI_SOURCE, w->rank, order);
 		updateOrder(w, status, order, lower, upper);
 
 		if (w->order[lower] == w->order[upper]) {
 			w->order[upper] = 2;
 		}
+		fprintf(stderr, "%d -> %d : %d\n", w->rank, w->surrounding[lower], w->order[lower]);
 		MPI_Send(&w->order[lower], 1, MPI_INT, w->surrounding[lower], TAG_ORDER_RES, MPI_COMM_WORLD);
+
+		fprintf(stderr, "%d -> %d : %d\n", w->rank, w->surrounding[upper], w->order[upper]);
 		MPI_Send(&w->order[upper], 1, MPI_INT, w->surrounding[upper], TAG_ORDER_RES, MPI_COMM_WORLD);
 	} else if (w->rank < w->surrounding[upper]) {
-		fprintf(stderr, "Worker on side\n");
-		MPI_Recv(&order, 1, MPI_INT, w->surrounding[lower], TAG_ORDER_SET, MPI_COMM_WORLD, &status);
-		w->order[lower] = order;
-		order = order&1 ^ 1;
-		MPI_Send(&order, 1, MPI_INT, w->surrounding[upper], TAG_ORDER_SET, MPI_COMM_WORLD);
+		fprintf(stderr, "%d on side\n", w->rank);
 
-		MPI_Recv(&w->order[upper], 1, MPI_INT, w->surrounding[upper], TAG_ORDER_RES, MPI_COMM_WORLD, &status);
-		MPI_Send(&w->order[lower], 1, MPI_INT, w->surrounding[lower], TAG_ORDER_RES, MPI_COMM_WORLD);
+		MPI_Recv(&order, 1, MPI_INT, w->surrounding[upper], TAG_ORDER_SET, MPI_COMM_WORLD, &status);
+		fprintf(stderr, "%d -> %d : %d\n", status.MPI_SOURCE, w->rank, order);
+		w->order[upper] = order;
+		order = order&1 ^ 1;
+
+		fprintf(stderr, "%d -> %d : %d\n", w->rank, w->surrounding[lower], w->order[lower]);
+		MPI_Send(&order, 1, MPI_INT, w->surrounding[lower], TAG_ORDER_SET, MPI_COMM_WORLD);
+
+		MPI_Recv(&w->order[lower], 1, MPI_INT, w->surrounding[lower], TAG_ORDER_RES, MPI_COMM_WORLD, &status);
+		fprintf(stderr, "%d -> %d : %d\n", status.MPI_SOURCE, w->rank, order);
+
+		fprintf(stderr, "%d -> %d : %d\n", w->rank, w->surrounding[upper], w->order[upper]);
+		MPI_Send(&w->order[upper], 1, MPI_INT, w->surrounding[upper], TAG_ORDER_RES, MPI_COMM_WORLD);
 	} else {
-		fprintf(stderr, "Worker local max\n");
+		fprintf(stderr, "%d local max\n", w->rank);
+
 		w->order[lower] = 1;
 		w->order[upper] = 0;
+
+		fprintf(stderr, "%d -> %d : %d\n", w->rank, w->surrounding[lower], w->order[lower]);
 		MPI_Send(&w->order[lower], 1, MPI_INT, w->surrounding[lower], TAG_ORDER_SET, MPI_COMM_WORLD);
+
+		fprintf(stderr, "%d -> %d : %d\n", w->rank, w->surrounding[upper], w->order[upper]);
 		MPI_Send(&w->order[upper], 1, MPI_INT, w->surrounding[upper], TAG_ORDER_SET, MPI_COMM_WORLD);
 
 		MPI_Recv(&order, 1, MPI_INT, MPI_ANY_SOURCE, TAG_ORDER_RES, MPI_COMM_WORLD, &status);
+		fprintf(stderr, "%d -> %d : %d\n", status.MPI_SOURCE, w->rank, order);
 		updateOrder(w, status, order, lower, upper);
+
 		MPI_Recv(&order, 1, MPI_INT, MPI_ANY_SOURCE, TAG_ORDER_RES, MPI_COMM_WORLD, &status);
+		fprintf(stderr, "%d -> %d : %d\n", status.MPI_SOURCE, w->rank, order);
 		updateOrder(w, status, order, lower, upper);
 	}
 	fprintf(stderr, "Computed order\n");

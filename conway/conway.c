@@ -15,9 +15,9 @@
 #include "worker.h"
 #include "tags.h"
 
-#define WINDOW_WIDTH 800
-#define WINDOW_HEIGHT 600
-#define SQUARE_SIZE 3
+#define WINDOW_WIDTH 1000
+#define WINDOW_HEIGHT 800
+#define SQUARE_SIZE 1
 
 #define MAX_WORKER_SIDE 100
 
@@ -26,6 +26,7 @@ int windowWidth, windowHeight, squareSize, squareWidth, squareHeight;
 char **con = NULL;
 
 int stepOnIdle=0;
+int skipFrames = 10;
 
 typedef struct WorkerData_struct {
 	int rank;
@@ -74,6 +75,10 @@ void onestep() {
 	int task;
 	task = TASK_COMPUTE;
 	MPI_Bcast(&task, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	int i;
+	for (i=0;i<skipFrames;++i) {
+		MPI_Bcast(&task, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	}
 
 	task = TASK_REPORT;
 	MPI_Bcast(&task, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -174,9 +179,11 @@ void initializeWorkers(int size) {
 		widths[i] = workerWidth;
 		widthLeft -= widths[i];
 		if (workerHeight * i < heightLeft) {
+			heightLeft--;
 			heights[i]++;
 		}
 		if (workerWidth * i < widthLeft) {
+			widthLeft--;
 			widths[i]++;
 		}
 	}
