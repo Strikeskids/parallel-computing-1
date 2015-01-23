@@ -9,7 +9,6 @@
 #include "worker.h"
 
 void findOrder(Worker *w, int i1, int i2);
-void workerBarrier(Worker w);
 void exchangeData(Worker w, char **data, int dir, int send, int recv, int len);
 void exchangeSides(Worker w, char **data, int lower, int upper, int width, int height);
 void accumulate(char **src, char **dest, int width, int height);
@@ -22,24 +21,6 @@ void updateOrder(Worker *w, MPI_Status status, int order, int lower, int upper) 
 	}
 }
 
-void workerBarrier(Worker w) {
-	MPI_Status status;
-	int token, next, prev;
-	next = w.rank % (w.size-1) + 1;
-	prev = (w.rank+w.size-3) % (w.size-1) + 1;
-	if (next == w.rank || prev == w.rank) {
-		return;
-	}
-
-	if (w.rank&1 && w.rank != w.size-1) {
-		MPI_Send(&token, 1, MPI_INT, next, TAG_WORKER_BARRIER, MPI_COMM_WORLD);
-		MPI_Recv(&token, 1, MPI_INT, prev, TAG_WORKER_BARRIER, MPI_COMM_WORLD, &status);
-	} else {
-		MPI_Recv(&token, 1, MPI_INT, prev, TAG_WORKER_BARRIER, MPI_COMM_WORLD, &status);
-		MPI_Send(&token, 1, MPI_INT, next, TAG_WORKER_BARRIER, MPI_COMM_WORLD);
-	}
-}
-
 void findOrder(Worker *w, int lower, int upper) {
 	MPI_Status status;
 
@@ -49,7 +30,6 @@ void findOrder(Worker *w, int lower, int upper) {
 		fprintf(stderr, "Worker %d surrounds itself\n", w->rank);
 		w->order[lower] = -1;
 		w->order[upper] = -1;
-		workerBarrier(*w);
 		return;
 	}
 
@@ -118,7 +98,6 @@ void findOrder(Worker *w, int lower, int upper) {
 		updateOrder(w, status, order, lower, upper);
 	}
 	fprintf(stderr, "Computed order\n");
-	workerBarrier(*w);
 }
 
 void exchangeData(Worker w, char **data, int dir, int send, int recv, int len) {
@@ -139,9 +118,6 @@ void exchangeSides(Worker w, char **data, int lower, int upper, int width, int h
 		
 		memcpy(data[height+1], data[1], width);
 		memcpy(data[0], data[height], width);
-		for (i=0;i<3;++i) {
-			workerBarrier(w);
-		}
 	} else {
 		for (i=0;i<3;++i) {
 			if (w.order[lower] == i) {
@@ -149,7 +125,6 @@ void exchangeSides(Worker w, char **data, int lower, int upper, int width, int h
 			} else if (w.order[upper] == i) {
 				exchangeData(w, data, upper, height, height+1, width);
 			}
-			workerBarrier(w);
 		}
 	}
 }
